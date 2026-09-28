@@ -1,0 +1,412 @@
+[
+  {
+    "path": "assets/backgrounds/home.jpg",
+    "bytes": 808204,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/legacy/horde-atlas.png",
+    "bytes": 3928425,
+    "mime": "png"
+  },
+  {
+    "path": "assets/hero-cards/legacy/alliance-atlas.jpg",
+    "bytes": 425734,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/legacy/skyborne-warrior.webp",
+    "bytes": 9840,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/legacy/skyborne-hunter.webp",
+    "bytes": 10674,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/legacy/skyborne-rogue.webp",
+    "bytes": 9750,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/legacy/skyborne-druid.webp",
+    "bytes": 10732,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/legacy/skyborne-mage.webp",
+    "bytes": 10296,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/icons/classes/warrior.png",
+    "bytes": 2561,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/hunter.png",
+    "bytes": 2367,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/mage.png",
+    "bytes": 2706,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/rogue.png",
+    "bytes": 2801,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/priest.png",
+    "bytes": 2571,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/warlock.png",
+    "bytes": 2872,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/paladin.png",
+    "bytes": 2794,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/druid.png",
+    "bytes": 2684,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/classes/shaman.png",
+    "bytes": 2787,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/horde-orc.png",
+    "bytes": 4602,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/horde-troll.png",
+    "bytes": 4554,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/horde-tauren.png",
+    "bytes": 4611,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/horde-undead.png",
+    "bytes": 4533,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/horde-skyborne.png",
+    "bytes": 4592,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/alliance-human.png",
+    "bytes": 4394,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/alliance-dwarf.png",
+    "bytes": 4554,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/alliance-night-elf.png",
+    "bytes": 4559,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/alliance-gnome.png",
+    "bytes": 4663,
+    "mime": "png"
+  },
+  {
+    "path": "assets/icons/races/alliance-skyborne.png",
+    "bytes": 4457,
+    "mime": "png"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-warrior.jpg",
+    "bytes": 285368,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-hunter.jpg",
+    "bytes": 311015,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-mage.jpg",
+    "bytes": 273459,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-rogue.jpg",
+    "bytes": 245714,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-warlock.jpg",
+    "bytes": 276335,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/orc-shaman.jpg",
+    "bytes": 317408,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-warrior.jpg",
+    "bytes": 279183,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-hunter.jpg",
+    "bytes": 264391,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-rogue.jpg",
+    "bytes": 247817,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-priest.jpg",
+    "bytes": 276341,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-warlock.jpg",
+    "bytes": 287560,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/troll-shaman.jpg",
+    "bytes": 295097,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/tauren-warrior.jpg",
+    "bytes": 291773,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/tauren-hunter.jpg",
+    "bytes": 293510,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/tauren-druid.jpg",
+    "bytes": 315005,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/tauren-shaman.jpg",
+    "bytes": 318173,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-warrior.jpg",
+    "bytes": 290409,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-mage.jpg",
+    "bytes": 288605,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-rogue.jpg",
+    "bytes": 249659,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-priest.jpg",
+    "bytes": 288504,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-warlock.jpg",
+    "bytes": 275614,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/undead-paladin.jpg",
+    "bytes": 309919,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/skyborne-warrior.jpg",
+    "bytes": 264677,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/skyborne-hunter.jpg",
+    "bytes": 272431,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/skyborne-rogue.jpg",
+    "bytes": 249941,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/skyborne-druid.jpg",
+    "bytes": 307941,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/horde/skyborne-shaman.jpg",
+    "bytes": 277883,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-warrior.jpg",
+    "bytes": 267579,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-hunter.jpg",
+    "bytes": 299877,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-mage.jpg",
+    "bytes": 306805,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-rogue.jpg",
+    "bytes": 254700,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-priest.jpg",
+    "bytes": 298798,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-warlock.jpg",
+    "bytes": 272069,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/human-paladin.jpg",
+    "bytes": 291151,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-warrior.jpg",
+    "bytes": 299044,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-hunter.jpg",
+    "bytes": 298153,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-rogue.jpg",
+    "bytes": 249494,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-priest.jpg",
+    "bytes": 279922,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-paladin.jpg",
+    "bytes": 299489,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/dwarf-shaman.jpg",
+    "bytes": 311528,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/night-elf-warrior.jpg",
+    "bytes": 290187,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/night-elf-hunter.jpg",
+    "bytes": 304559,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/night-elf-rogue.jpg",
+    "bytes": 274086,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/night-elf-priest.jpg",
+    "bytes": 285408,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/night-elf-druid.jpg",
+    "bytes": 316636,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/gnome-warrior.jpg",
+    "bytes": 299035,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/gnome-mage.jpg",
+    "bytes": 290531,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/gnome-rogue.jpg",
+    "bytes": 249597,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/gnome-priest.jpg",
+    "bytes": 291178,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/gnome-warlock.jpg",
+    "bytes": 285599,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/skyborne-warrior.jpg",
+    "bytes": 310330,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/skyborne-hunter.jpg",
+    "bytes": 286440,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/skyborne-mage.jpg",
+    "bytes": 277451,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/skyborne-rogue.jpg",
+    "bytes": 274207,
+    "mime": "jpeg"
+  },
+  {
+    "path": "assets/hero-cards/alliance/skyborne-druid.jpg",
+    "bytes": 276685,
+    "mime": "jpeg"
+  }
+]

@@ -1,0 +1,19 @@
+{
+  "phase": 2,
+  "entrypoint": "index.html",
+  "styles": [
+    "css/styles.css"
+  ],
+  "scripts": [
+    "data/characters.js",
+    "data/names.js",
+    "js/analytics.js",
+    "js/app.js"
+  ],
+  "asset_roots": [
+    "assets/backgrounds",
+    "assets/hero-cards",
+    "assets/icons"
+  ],
+  "notes": "No inline scripts remain in index.html."
+}
