@@ -2028,3 +2028,218 @@ body[data-gr-theme="forge"] #nameForge .forge-character-preview{
 @media(max-width:700px){
   .gr-tool-view label{font-size:10.5px}
 }
+
+/* =========================================================
+   THE GREAT REROLL — PAGE BACKGROUNDS
+   ========================================================= */
+
+body {
+  background-color: #0b0b0c;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+  background-attachment: fixed;
+}
+/* Homepage */
+body[data-gr-theme="home"] {
+  background-image:
+    linear-gradient(
+      rgba(5, 5, 6, 0.20),
+      rgba(5, 5, 6, 0.48)
+    ),
+    url("../assets/backgrounds/home.png");
+}
+
+/* Horde draft setup / lobby / draft */
+body[data-gr-theme="horde"] {
+  background-image:
+    linear-gradient(
+      rgba(18, 4, 2, 0.28),
+      rgba(10, 3, 2, 0.58)
+    ),
+    url("../assets/backgrounds/horde-draft.png");
+}
+
+/* Alliance draft setup / lobby / draft */
+body[data-gr-theme="alliance"] {
+  background-image:
+    linear-gradient(
+      rgba(4, 9, 18, 0.24),
+      rgba(3, 7, 14, 0.54)
+    ),
+    url("../assets/backgrounds/alliance-draft.png");
+}
+
+/* Name Forge */
+body[data-gr-theme="forge"] {
+  background-image:
+    linear-gradient(
+      rgba(8, 5, 12, 0.28),
+      rgba(5, 4, 8, 0.58)
+    ),
+    url("../assets/backgrounds/home.png");
+}
+/* Keep draft faction backgrounds sharp */
+body[data-gr-theme="horde"],
+body[data-gr-theme="alliance"] {
+  filter: none !important;
+}
+
+/* Prevent full-page blur effects from affecting the faction backgrounds */
+body[data-gr-theme="horde"]::before,
+body[data-gr-theme="alliance"]::before {
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+/* Keep tool panels readable without blurring the scenery */
+body[data-gr-theme="horde"] .panelx,
+body[data-gr-theme="alliance"] .panelx,
+body[data-gr-theme="horde"] .roll-panel,
+body[data-gr-theme="alliance"] .roll-panel {
+  background: rgba(12, 13, 15, 0.90) !important;
+  backdrop-filter: none !important;
+}
+
+/* =========================================================
+   THE GREAT REROLL — ILLUSTRATED HOME MODE CARDS
+   Drop the three artwork files into assets/homepage/ using
+   the filenames referenced below.
+   ========================================================= */
+.gr-home-grid{
+  gap:18px!important;
+}
+.gr-home-card{
+  min-height:430px!important;
+  border-radius:16px!important;
+  border:1px solid rgba(255,255,255,.13)!important;
+  background:linear-gradient(180deg,rgba(17,18,21,.97),rgba(8,9,11,.985))!important;
+  box-shadow:0 18px 46px rgba(0,0,0,.48)!important;
+  isolation:isolate;
+}
+.gr-home-card:hover{
+  transform:translateY(-5px)!important;
+  box-shadow:0 26px 58px rgba(0,0,0,.58)!important;
+}
+.gr-home-card-lottery:hover{border-color:rgba(235,165,79,.72)!important}
+.gr-home-card-roster:hover{border-color:rgba(93,159,227,.76)!important}
+.gr-home-card-forge:hover{border-color:rgba(181,113,234,.78)!important}
+
+/* Replaces the old abstract icon block with true artwork. */
+.gr-home-icon{display:none!important}
+.gr-home-art{
+  position:relative;
+  display:block;
+  width:100%;
+  height:205px;
+  flex:0 0 205px;
+  overflow:hidden;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.gr-home-art::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.02) 25%,rgba(7,8,10,.1) 58%,rgba(7,8,10,.88) 100%);
+  pointer-events:none;
+}
+.gr-home-art::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  box-shadow:inset 0 -22px 38px rgba(0,0,0,.32);
+}
+.gr-home-art-lottery{
+  background-image:
+    linear-gradient(135deg,rgba(96,43,17,.18),rgba(17,11,8,.08)),
+    url("../assets/homepage/character-lottery.png"),
+    linear-gradient(135deg,#4c2616,#17120f);
+}
+.gr-home-art-roster{
+  background-image:
+    linear-gradient(135deg,rgba(9,30,52,.15),rgba(9,14,22,.08)),
+    url("../assets/homepage/guild-roster-draft.png"),
+    linear-gradient(135deg,#102a42,#11151d);
+}
+.gr-home-art-forge{
+  background-image:
+    linear-gradient(135deg,rgba(61,23,76,.12),rgba(24,10,28,.08)),
+    url("../assets/homepage/name-forge.png"),
+    linear-gradient(135deg,#3e203f,#18121d);
+}
+.gr-home-art-badge{
+  position:absolute;
+  z-index:2;
+  left:14px;
+  bottom:12px;
+  padding:5px 8px;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:999px;
+  background:rgba(8,9,11,.72);
+  color:#eee8dc;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  backdrop-filter:blur(5px);
+}
+
+.gr-home-card-copy{
+  padding:17px 18px 18px!important;
+}
+.gr-home-card-kicker{
+  margin-bottom:5px!important;
+  color:#958d82!important;
+  font-size:8px!important;
+  letter-spacing:.18em!important;
+}
+.gr-home-card-title{
+  margin:0 0 5px!important;
+  color:#f4dfb2!important;
+  font:900 clamp(21px,2vw,26px)/1.05 Georgia,"Times New Roman",serif!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase;
+  text-shadow:0 2px 14px rgba(0,0,0,.78);
+}
+.gr-home-card-roster .gr-home-card-title{color:#d9ebff!important}
+.gr-home-card-forge .gr-home-card-title{color:#ead8ff!important}
+.gr-home-card-tagline{
+  display:block;
+  margin:0 0 10px;
+  color:#f0e6d7;
+  font:700 14px/1.35 "Segoe UI",Arial,sans-serif;
+}
+.gr-home-card small{
+  min-height:51px;
+  color:#bbb3a8!important;
+  font-size:11px!important;
+  line-height:1.52!important;
+}
+.gr-home-features{margin-top:14px!important}
+.gr-home-card em{
+  margin-top:auto!important;
+  padding-top:14px!important;
+  border-top:1px solid rgba(255,255,255,.08)!important;
+  font-size:10px!important;
+  letter-spacing:.12em!important;
+}
+.gr-home-card-lottery em{color:#efad62!important}
+.gr-home-card-roster em{color:#84bfff!important}
+.gr-home-card-forge em{color:#ca91f0!important}
+
+@media(max-width:900px){
+  .gr-home-grid{grid-template-columns:1fr!important}
+  .gr-home-card{min-height:0!important}
+  .gr-home-art{height:230px;flex-basis:230px}
+  .gr-home-card small{min-height:0}
+}
+@media(max-width:560px){
+  .gr-home-art{height:185px;flex-basis:185px}
+  .gr-home-card-copy{padding:15px!important}
+  .gr-home-card-title{font-size:22px!important}
+}
+
