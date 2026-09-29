@@ -1,0 +1,1085 @@
+
+/* ================================================================
+   THE WAR TABLE — SHARED UI SYSTEM v2
+   Reusable fantasy UI layer. Loaded after styles.css.
+   ================================================================ */
+
+:root{
+  --wt-bg:#08090b;
+  --wt-wood:#2f2117;
+  --wt-wood-deep:#1b140f;
+  --wt-iron:#24272a;
+  --wt-iron-deep:#101214;
+  --wt-brass:#b9853f;
+  --wt-brass-bright:#d6a85c;
+  --wt-brass-dim:#6b4e2c;
+  --wt-parchment:#f0ddb7;
+  --wt-parchment-dim:#c8b89d;
+  --wt-muted:#92897c;
+  --wt-title:Georgia,"Times New Roman",serif;
+  --wt-body:"Trebuchet MS","Segoe UI",Arial,sans-serif;
+}
+
+/* ---------- Shared buttons ---------- */
+.wt-btn{
+  position:relative!important;
+  min-height:43px!important;
+  padding:0 18px!important;
+  border-radius:5px!important;
+  font-family:var(--wt-body)!important;
+  font-size:9px!important;
+  font-weight:900!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+  cursor:pointer;
+}
+.wt-btn:before{
+  content:"";
+  position:absolute;
+  inset:3px;
+  border:1px solid rgba(255,228,170,.055);
+  border-radius:3px;
+  pointer-events:none;
+}
+.wt-btn-primary{
+  border:1px solid #8e642f!important;
+  background:linear-gradient(180deg,#5b4020,#382615 50%,#22170e)!important;
+  color:#f2d395!important;
+  text-shadow:0 1px 0 #000!important;
+  box-shadow:inset 0 1px 0 rgba(255,226,168,.10),inset 0 -2px 0 rgba(0,0,0,.44),0 6px 14px rgba(0,0,0,.25)!important;
+}
+.wt-btn-primary:hover{
+  border-color:#aa7938!important;
+  background:linear-gradient(180deg,#684924,#402b17 50%,#26190f)!important;
+}
+.wt-btn-secondary{
+  border:1px solid #5e5141!important;
+  background:linear-gradient(180deg,#2b2925,#17191b)!important;
+  color:#c9baa1!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+}
+
+/* ---------- The shared modal object ---------- */
+#rerollFlow .wt-modal{
+  position:relative!important;
+  overflow:hidden!important;
+  border:2px solid #6d4f2e!important;
+  border-radius:10px!important;
+  background:
+    radial-gradient(circle at 18% 0%,rgba(117,74,31,.13),transparent 30%),
+    linear-gradient(145deg,#17130f,#0b0d10 65%,#080a0c)!important;
+  box-shadow:0 28px 85px rgba(0,0,0,.70),inset 0 0 0 4px rgba(0,0,0,.30)!important;
+}
+#rerollFlow .wt-modal:before{
+  content:""!important;
+  position:absolute!important;
+  inset:8px!important;
+  border:1px solid rgba(197,151,78,.16)!important;
+  border-radius:6px!important;
+  pointer-events:none!important;
+  z-index:0!important;
+}
+#rerollFlow .wt-modal-head,
+#rerollFlow .wt-modal-body,
+#rerollFlow .wt-modal-foot{position:relative!important;z-index:1!important}
+
+#rerollFlow .wt-modal-head{
+  padding:22px 28px!important;
+  border-bottom:1px solid rgba(194,145,70,.28)!important;
+  background:
+    linear-gradient(rgba(15,12,9,.62),rgba(10,10,10,.78)),
+    repeating-linear-gradient(0deg,rgba(96,61,30,.20) 0 3px,rgba(57,36,21,.15) 3px 7px)!important;
+  box-shadow:inset 0 -1px 0 rgba(255,211,135,.035)!important;
+}
+#rerollFlow .rr-flow-kicker,
+#rerollFlow .wt-kicker{
+  color:var(--wt-brass-bright)!important;
+  font-family:var(--wt-title)!important;
+  font-weight:800!important;
+  letter-spacing:.18em!important;
+}
+#rerollFlow .wt-modal-head h2{
+  margin-top:5px!important;
+  color:#efd5a4!important;
+  font:900 29px/1.05 var(--wt-title)!important;
+  letter-spacing:.035em!important;
+  text-shadow:0 2px 0 #000!important;
+}
+#rerollFlow .wt-modal-head p{color:#9e9588!important}
+
+#rerollFlow .wt-modal-body{
+  padding:24px 28px 27px!important;
+  background:radial-gradient(circle at 50% 0%,rgba(111,72,31,.07),transparent 45%)!important;
+}
+#rerollFlow .wt-modal-foot{
+  border-top:1px solid rgba(128,91,46,.32)!important;
+  background:
+    linear-gradient(rgba(15,12,9,.72),rgba(7,8,9,.95)),
+    repeating-linear-gradient(0deg,rgba(90,57,29,.12) 0 3px,rgba(49,31,20,.08) 3px 7px)!important;
+}
+
+/* ---------- Progress medallions ---------- */
+#rerollFlow .rr-flow-progress span{
+  width:29px!important;height:29px!important;flex-basis:29px!important;
+  border:1px solid #4f4437!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle at 35% 30%,#25231f,#101214 72%)!important;
+  color:#8f877c!important;
+  transform:none!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 2px 7px rgba(0,0,0,.32)!important;
+}
+#rerollFlow .rr-flow-progress span:after{display:none!important}
+#rerollFlow .rr-flow-progress span.active{
+  border-color:#a97838!important;
+  background:radial-gradient(circle at 35% 30%,#4b3219,#1c1611 72%)!important;
+  color:#f1cb7d!important;
+  box-shadow:inset 0 1px 0 rgba(255,231,178,.05),0 0 12px rgba(170,113,43,.10)!important;
+}
+#rerollFlow .rr-flow-progress i{
+  height:1px!important;
+  background:linear-gradient(90deg,#46331f,#272522)!important;
+}
+
+/* ---------- Shared flow-step surface ---------- */
+#rerollFlow .wt-flow-step{
+  position:relative!important;
+  padding:20px 21px 22px!important;
+  border:1px solid rgba(128,92,48,.28)!important;
+  border-radius:8px!important;
+  background:
+    linear-gradient(180deg,rgba(41,30,19,.67),rgba(17,17,16,.72)),
+    radial-gradient(circle at 20% 10%,rgba(190,138,66,.04),transparent 38%)!important;
+  box-shadow:inset 0 1px 0 rgba(255,223,166,.025),inset 0 0 28px rgba(0,0,0,.28)!important;
+}
+#rerollFlow .wt-flow-step:before{
+  content:"";
+  position:absolute;left:14px;right:14px;top:10px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(202,153,77,.22),transparent);
+}
+#rerollFlow .wt-flow-step h3{
+  color:#f0d7aa!important;
+  font:900 28px/1.08 var(--wt-title)!important;
+  letter-spacing:.025em!important;
+  text-shadow:0 2px 0 rgba(0,0,0,.72)!important;
+}
+#rerollFlow .rr-step-intro{color:#c0b4a3!important}
+
+/* ---------- Hero-choice component ---------- */
+#rerollFlow .wt-hero-grid{gap:16px!important}
+#rerollFlow .wt-hero-choice{
+  position:relative!important;
+  overflow:hidden!important;
+  min-height:322px!important;
+  padding:0!important;
+  border:1px solid #694d2e!important;
+  border-radius:8px!important;
+  background:#151311!important;
+  box-shadow:inset 0 0 0 1px rgba(220,170,92,.05),0 10px 24px rgba(0,0,0,.26)!important;
+}
+#rerollFlow .wt-hero-choice:before{
+  content:""!important;
+  position:absolute!important;
+  inset:7px!important;
+  border:1px solid rgba(211,161,84,.10)!important;
+  border-radius:5px!important;
+  pointer-events:none!important;
+  z-index:4!important;
+}
+#rerollFlow .wt-hero-choice:hover{
+  transform:translateY(-2px)!important;
+  border-color:#856238!important;
+}
+#rerollFlow .wt-hero-choice.selected{
+  border-color:#b17f39!important;
+  background:#151311!important;
+  box-shadow:inset 0 0 0 1px rgba(240,187,97,.08),0 12px 28px rgba(0,0,0,.34),0 0 18px rgba(177,120,51,.05)!important;
+}
+#rerollFlow .wt-hero-choice.selected:after{
+  content:"SELECTED"!important;
+  position:absolute!important;
+  right:13px!important;top:13px!important;z-index:5!important;
+  padding:5px 7px!important;
+  border:1px solid #8b632e!important;
+  border-radius:4px!important;
+  background:#181512!important;
+  color:#eec66f!important;
+  font:900 8px/1 var(--wt-body)!important;
+  letter-spacing:.11em!important;
+}
+#rerollFlow .wt-hero-art{
+  position:relative!important;
+  display:block!important;
+  height:218px!important;
+  margin:0!important;
+  overflow:hidden!important;
+  border-bottom:1px solid rgba(190,140,67,.22)!important;
+}
+#rerollFlow .wt-hero-art:after{
+  content:""!important;
+  position:absolute!important;left:0!important;right:0!important;bottom:0!important;height:55%!important;
+  background:linear-gradient(transparent,rgba(13,13,13,.94))!important;
+  z-index:2!important;
+}
+/* Temporary visual art surfaces until final illustrations are added. */
+#rerollFlow .wt-hero-art-local{
+  background:
+    radial-gradient(circle at 50% 52%,rgba(231,172,76,.29),transparent 16%),
+    radial-gradient(circle at 50% 66%,rgba(117,69,27,.40),transparent 35%),
+    linear-gradient(145deg,#49321d 0%,#1b1510 58%,#0b0d0e 100%)!important;
+}
+#rerollFlow .wt-hero-art-online{
+  background:
+    radial-gradient(circle at 29% 52%,rgba(121,155,188,.20),transparent 13%),
+    radial-gradient(circle at 50% 46%,rgba(221,167,75,.22),transparent 14%),
+    radial-gradient(circle at 72% 55%,rgba(121,155,188,.17),transparent 13%),
+    linear-gradient(145deg,#29251f 0%,#141617 58%,#0a0c0e 100%)!important;
+}
+#rerollFlow .wt-hero-art .rr-choice-icon{
+  position:absolute!important;
+  left:50%!important;
+  top:49%!important;
+  transform:translate(-50%,-50%)!important;
+  z-index:1!important;
+  margin:0!important;
+  padding:0!important;
+  width:128px!important;
+  height:112px!important;
+  border:none!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  overflow:visible!important;
+}
+
+/* ---------- Great Reroll shield icon system ---------- */
+#rerollFlow .wt-hero-art .rr-choice-icon::before,
+#rerollFlow .wt-hero-art .rr-choice-icon::after{
+  content:""!important;
+  position:absolute!important;
+  border:none!important;
+  border-radius:0!important;
+  background-color:transparent!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:contain!important;
+  box-shadow:none!important;
+  opacity:1!important;
+}
+
+/* Local Draft = one shield */
+#rerollFlow .wt-hero-art .rr-icon-local::before{
+  display:block!important;
+  left:50%!important;
+  top:50%!important;
+  width:82px!important;
+  height:98px!important;
+  transform:translate(-50%,-50%)!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 82 98'>\
+<defs>\
+<linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>\
+<stop offset='0' stop-color='%23261d14'/>\
+<stop offset='1' stop-color='%23100f0e'/>\
+</linearGradient>\
+</defs>\
+<path d='M41 4 L72 15 V41 C72 66 57 83 41 94 C25 83 10 66 10 41 V15 Z' fill='url(%23g)' stroke='%23d6a85c' stroke-width='5' stroke-linejoin='round'/>\
+<path d='M41 19 L58 25 V42 C58 57 50 68 41 76 C32 68 24 57 24 42 V25 Z' fill='none' stroke='%23a97736' stroke-width='3' stroke-linejoin='round'/>\
+</svg>")!important;
+  filter:drop-shadow(0 0 8px rgba(214,168,92,.32))!important;
+}
+
+#rerollFlow .wt-hero-art .rr-icon-local::after{
+  display:none!important;
+}
+
+/* Online Lobby = three shields */
+#rerollFlow .wt-hero-art .rr-icon-online::before{
+  display:block!important;
+  left:50%!important;
+  top:50%!important;
+  width:124px!important;
+  height:104px!important;
+  transform:translate(-50%,-50%)!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 132 108'>\
+<defs>\
+<linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>\
+<stop offset='0' stop-color='%23261d14'/>\
+<stop offset='1' stop-color='%23100f0e'/>\
+</linearGradient>\
+</defs>\
+<g fill='url(%23g)' stroke='%23d6a85c' stroke-width='4' stroke-linejoin='round'>\
+<path d='M66 4 L86 11 V31 C86 47 76 59 66 67 C56 59 46 47 46 31 V11 Z'/>\
+<path d='M28 39 L48 46 V66 C48 82 38 94 28 102 C18 94 8 82 8 66 V46 Z'/>\
+<path d='M104 39 L124 46 V66 C124 82 114 94 104 102 C94 94 84 82 84 66 V46 Z'/>\
+</g>\
+</svg>")!important;
+  filter:drop-shadow(0 0 8px rgba(214,168,92,.28))!important;
+}
+
+#rerollFlow .wt-hero-art .rr-icon-online::after{
+  display:none!important;
+}
+#rerollFlow .wt-hero-copy{
+  position:relative!important;
+  display:block!important;
+  z-index:3!important;
+  margin-top:-48px!important;
+  padding:13px 18px 18px!important;
+}
+#rerollFlow .wt-hero-copy strong{
+  margin:0!important;
+  color:#efd39e!important;
+  font:900 21px/1.08 var(--wt-title)!important;
+  letter-spacing:.045em!important;
+  text-shadow:0 2px 0 #000!important;
+}
+#rerollFlow .wt-hero-copy small{
+  margin-top:7px!important;
+  max-width:90%!important;
+  color:#c0b5a6!important;
+  font:500 11px/1.55 var(--wt-body)!important;
+}
+#rerollFlow .wt-hero-copy em{
+  margin-top:12px!important;
+  color:#9b8b73!important;
+  font:800 8px/1.2 var(--wt-body)!important;
+  letter-spacing:.12em!important;
+}
+
+/* ---------- Standard panels / options ---------- */
+#rerollFlow .wt-panel{
+  border:1px solid #55442e!important;
+  border-radius:7px!important;
+  background:linear-gradient(180deg,rgba(38,29,20,.72),rgba(16,17,18,.90))!important;
+  box-shadow:inset 0 0 22px rgba(0,0,0,.26)!important;
+}
+#rerollFlow .wt-option{
+  border:1px solid #594831!important;
+  border-radius:7px!important;
+  background:linear-gradient(180deg,rgba(43,32,21,.76),rgba(17,18,19,.92))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+#rerollFlow .wt-option.selected{
+  border-color:#a67537!important;
+  background:linear-gradient(180deg,rgba(65,44,22,.82),rgba(18,17,16,.94))!important;
+}
+
+/* ---------- Form controls ---------- */
+#rerollFlow .rr-settings-grid label,
+#rerollFlow .rr-schedule-wrap label{
+  color:#ceb17a!important;
+  font-family:var(--wt-title)!important;
+  font-weight:800!important;
+  letter-spacing:.055em!important;
+}
+#rerollFlow .rr-field{
+  border:1px solid #63503a!important;
+  border-radius:5px!important;
+  background:linear-gradient(180deg,#0c0e10,#15120f)!important;
+  color:#eadfc9!important;
+  font-family:var(--wt-body)!important;
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.42)!important;
+}
+
+/* ---------- Mobile ---------- */
+@media(max-width:760px){
+  #rerollFlow .wt-modal-head{padding:20px 51px 16px 18px!important}
+  #rerollFlow .wt-modal-body{padding:18px 15px 20px!important}
+  #rerollFlow .wt-flow-step{padding:18px 14px 19px!important}
+  #rerollFlow .wt-hero-choice{min-height:280px!important}
+  #rerollFlow .wt-hero-art{height:190px!important}
+}
+
+/* ================================================================
+   STRONG SELECTED STATE
+   Makes the active hero choice unmistakable.
+   ================================================================ */
+
+#rerollFlow .wt-hero-choice{
+  transition:
+    border-color .18s ease,
+    box-shadow .18s ease,
+    background .18s ease,
+    transform .18s ease!important;
+}
+
+#rerollFlow .wt-hero-choice.selected{
+  border:2px solid #e0aa4d!important;
+  background:
+    linear-gradient(180deg,rgba(88,58,24,.30),rgba(22,18,14,.96)),
+    #151311!important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,217,137,.30),
+    inset 0 0 34px rgba(205,139,48,.15),
+    0 0 0 2px rgba(180,119,37,.16),
+    0 0 26px rgba(222,159,65,.20),
+    0 12px 28px rgba(0,0,0,.36)!important;
+}
+
+#rerollFlow .wt-hero-choice.selected .wt-hero-art{
+  filter:brightness(1.10) saturate(1.08)!important;
+}
+
+#rerollFlow .wt-hero-choice.selected .rr-choice-icon{
+  filter:drop-shadow(0 0 12px rgba(237,181,83,.36))!important;
+}
+
+#rerollFlow .wt-hero-choice.selected .wt-hero-copy{
+  background:
+    linear-gradient(90deg,rgba(135,86,29,.20),rgba(56,37,20,.10) 55%,transparent)!important;
+}
+
+#rerollFlow .wt-hero-choice.selected .wt-hero-copy strong{
+  color:#ffd57c!important;
+  text-shadow:
+    0 2px 0 #000,
+    0 0 10px rgba(225,162,66,.18)!important;
+}
+
+#rerollFlow .wt-hero-choice.selected:after{
+  content:"SELECTED"!important;
+  right:12px!important;
+  top:12px!important;
+  padding:6px 10px!important;
+  border:1px solid #d29a43!important;
+  border-radius:4px!important;
+  background:linear-gradient(180deg,#6d481d,#3a2715)!important;
+  color:#ffe0a0!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,232,184,.18),
+    0 0 12px rgba(215,151,59,.18)!important;
+  font-size:8px!important;
+  letter-spacing:.12em!important;
+}
+
+#rerollFlow .wt-hero-choice:not(.selected){
+  opacity:.82!important;
+  border-color:#5b4932!important;
+}
+
+#rerollFlow .wt-hero-choice:not(.selected):hover{
+  opacity:1!important;
+  border-color:#8a6639!important;
+}
+
+/* ================================================================
+   WAR TABLE CUSTOM DROPDOWNS
+   Replaces the browser/Windows native popup with a reusable fantasy menu.
+   The original <select> remains in the DOM for existing draft logic.
+   ================================================================ */
+
+#rerollFlow .wt-native-select{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+#rerollFlow .wt-select{
+  position:relative;
+  width:100%;
+  margin-top:7px;
+  z-index:5;
+}
+
+#rerollFlow .wt-select.open{
+  z-index:80;
+}
+
+#rerollFlow .wt-select-trigger{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  width:100%;
+  min-height:42px;
+  padding:0 13px 0 14px;
+  border:1px solid #76562f;
+  border-radius:5px;
+  background:
+    linear-gradient(180deg,#181714 0%,#101214 100%);
+  color:#eadfc9;
+  font:700 11px/1 var(--wt-body);
+  text-align:left;
+  cursor:pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,191,.035),
+    inset 0 0 14px rgba(0,0,0,.30),
+    0 1px 0 rgba(0,0,0,.65);
+  transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+#rerollFlow .wt-select-trigger:before{
+  content:"";
+  position:absolute;
+  left:5px;
+  top:6px;
+  bottom:6px;
+  width:2px;
+  border-radius:2px;
+  background:linear-gradient(transparent,#9a6d36,transparent);
+  opacity:.68;
+}
+
+#rerollFlow .wt-select-trigger:hover,
+#rerollFlow .wt-select.open .wt-select-trigger{
+  border-color:#b57e39;
+  background:
+    linear-gradient(180deg,#211b14 0%,#121315 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,191,.05),
+    inset 0 0 18px rgba(134,84,31,.10),
+    0 0 0 1px rgba(184,126,54,.08),
+    0 0 12px rgba(176,118,45,.08);
+}
+
+#rerollFlow .wt-select-value{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+#rerollFlow .wt-select-chevron{
+  position:relative;
+  flex:0 0 16px;
+  width:16px;
+  height:16px;
+  border:1px solid #5f4930;
+  border-radius:3px;
+  background:linear-gradient(#24201a,#121416);
+}
+
+#rerollFlow .wt-select-chevron:after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:43%;
+  width:6px;
+  height:6px;
+  border-right:2px solid #c89a51;
+  border-bottom:2px solid #c89a51;
+  transform:translate(-50%,-50%) rotate(45deg);
+  transition:transform .16s ease, top .16s ease;
+}
+
+#rerollFlow .wt-select.open .wt-select-chevron:after{
+  top:58%;
+  transform:translate(-50%,-50%) rotate(225deg);
+}
+
+#rerollFlow .wt-select-menu{
+  position:absolute;
+  left:0;
+  right:0;
+  top:calc(100% + 5px);
+  display:none;
+  overflow:hidden;
+  padding:5px;
+  border:1px solid #7d5b33;
+  border-radius:6px;
+  background:
+    linear-gradient(rgba(18,15,12,.96),rgba(10,11,12,.985)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(111,70,32,.09) 0 2px,
+      rgba(47,31,20,.06) 2px 7px
+    );
+  box-shadow:
+    0 18px 34px rgba(0,0,0,.68),
+    inset 0 0 0 1px rgba(224,175,95,.045),
+    inset 0 0 22px rgba(0,0,0,.30);
+}
+
+#rerollFlow .wt-select.open .wt-select-menu{
+  display:block;
+}
+
+#rerollFlow .wt-select-option{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  width:100%;
+  min-height:38px;
+  padding:0 11px 0 9px;
+  border:1px solid transparent;
+  border-radius:4px;
+  background:transparent;
+  color:#c8bcaa;
+  font:650 11px/1.25 var(--wt-body);
+  text-align:left;
+  cursor:pointer;
+}
+
+#rerollFlow .wt-select-option + .wt-select-option{
+  border-top-color:rgba(255,255,255,.035);
+  border-top-left-radius:0;
+  border-top-right-radius:0;
+}
+
+#rerollFlow .wt-select-option:hover{
+  border-color:rgba(174,122,56,.24);
+  background:
+    linear-gradient(90deg,rgba(122,78,31,.30),rgba(70,45,25,.13) 58%,transparent);
+  color:#f0d8a8;
+}
+
+#rerollFlow .wt-select-option.selected{
+  border-color:#9d6d32;
+  background:
+    linear-gradient(90deg,rgba(148,93,32,.42),rgba(74,46,23,.20) 65%,transparent);
+  color:#ffd580;
+  box-shadow:
+    inset 0 0 13px rgba(192,126,44,.08);
+}
+
+#rerollFlow .wt-select-check{
+  position:relative;
+  flex:0 0 15px;
+  width:15px;
+  height:15px;
+  border:1px solid #4f4538;
+  border-radius:50%;
+  background:#101214;
+}
+
+#rerollFlow .wt-select-option.selected .wt-select-check{
+  border-color:#c08a3c;
+  background:radial-gradient(circle,#d9a64f 0 28%,#2b2014 31% 100%);
+  box-shadow:0 0 7px rgba(212,151,63,.18);
+}
+
+#rerollFlow .wt-select-option-label{
+  display:block;
+  padding-top:1px;
+}
+
+/* Give the bottom row enough visual room when its menus open. */
+#rerollFlow .rr-settings-layout,
+#rerollFlow .rr-settings-grid{
+  overflow:visible!important;
+}
+
+/* Native text inputs keep the existing field treatment. */
+#rerollFlow input.rr-field{
+  margin-top:7px;
+}
+
+/* On narrow screens, dropdowns remain inside the modal width. */
+@media(max-width:760px){
+  #rerollFlow .wt-select-menu{
+    max-height:250px;
+    overflow-y:auto;
+  }
+}
+
+/* ================================================================
+   WAR TABLE — ELIGIBILITY STEP
+   Replaces the legacy full-page race/class configuration screen.
+   ================================================================ */
+
+#rerollFlow .wt-eligibility-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin:20px 0 14px;
+  padding:13px 14px;
+  border:1px solid #54432d;
+  border-radius:7px;
+  background:linear-gradient(180deg,rgba(36,28,20,.78),rgba(15,16,17,.88));
+  box-shadow:inset 0 0 18px rgba(0,0,0,.26);
+}
+
+#rerollFlow .wt-eligibility-toolbar>div:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+#rerollFlow .wt-eligibility-eyebrow{
+  color:#8f8474;
+  font:800 8px/1 var(--wt-body);
+  letter-spacing:.15em;
+}
+
+#rerollFlow #rrEligibilityCount{
+  color:#f1cc82;
+  font:900 19px/1.1 var(--wt-title);
+}
+
+#rerollFlow #rrEligibilityCount.warn{
+  color:#d98775;
+}
+
+#rerollFlow .wt-eligibility-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+#rerollFlow .wt-eligibility-actions .wt-btn{
+  min-height:36px!important;
+  padding:0 13px!important;
+  font-size:8px!important;
+}
+
+#rerollFlow .wt-eligibility-factions{
+  display:flex;
+  width:max-content;
+  margin:0 0 14px;
+  padding:4px;
+  gap:4px;
+  border:1px solid #55442f;
+  border-radius:6px;
+  background:#0d0f10;
+}
+
+#rerollFlow .wt-eligibility-factions.hidden{display:none!important}
+
+#rerollFlow .wt-eligibility-factions button{
+  min-width:104px;
+  min-height:35px;
+  border:1px solid transparent;
+  border-radius:4px;
+  background:transparent;
+  color:#8e8579;
+  font:900 9px/1 var(--wt-body);
+  letter-spacing:.12em;
+  cursor:pointer;
+}
+
+#rerollFlow .wt-eligibility-factions button:hover{
+  color:#dec79e;
+  background:rgba(101,68,32,.18);
+}
+
+#rerollFlow .wt-eligibility-factions button.active{
+  border-color:#9b6d34;
+  background:linear-gradient(180deg,#4a321a,#211711);
+  color:#f1cc82;
+  box-shadow:inset 0 1px 0 rgba(255,225,166,.07);
+}
+
+#rerollFlow .wt-eligibility-notice{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin:0 0 14px;
+  padding:11px 13px;
+  border:1px solid rgba(174,122,56,.30);
+  border-radius:6px;
+  background:linear-gradient(90deg,rgba(104,67,29,.22),rgba(27,23,19,.35));
+}
+
+#rerollFlow .wt-eligibility-notice.hidden{display:none!important}
+
+#rerollFlow .wt-eligibility-notice b{
+  flex:0 0 auto;
+  color:#d8aa62;
+  font:900 8px/1.4 var(--wt-body);
+  letter-spacing:.12em;
+}
+
+#rerollFlow .wt-eligibility-notice span{
+  color:#b6aa99;
+  font:500 10px/1.45 var(--wt-body);
+}
+
+#rerollFlow .wt-eligibility-grid{
+  display:grid;
+  gap:11px;
+}
+
+#rerollFlow .wt-race-pool{
+  overflow:hidden;
+  border:1px solid #51412d;
+  border-radius:7px;
+  background:
+    linear-gradient(180deg,rgba(38,29,20,.68),rgba(14,15,16,.90));
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,178,.025),
+    inset 0 0 22px rgba(0,0,0,.24);
+}
+
+#rerollFlow .wt-race-pool-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:56px;
+  padding:9px 11px;
+  border-bottom:1px solid rgba(176,127,61,.16);
+  background:linear-gradient(90deg,rgba(84,54,27,.17),transparent 56%);
+}
+
+#rerollFlow .wt-race-identity{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+#rerollFlow .wt-race-identity img{
+  width:38px;
+  height:38px;
+  border:1px solid #725633;
+  border-radius:5px;
+  object-fit:cover;
+  background:#101214;
+  box-shadow:0 3px 9px rgba(0,0,0,.35);
+}
+
+#rerollFlow .wt-race-identity div{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+
+#rerollFlow .wt-race-identity strong{
+  color:#efd3a0;
+  font:900 16px/1 var(--wt-title);
+}
+
+#rerollFlow .wt-race-identity span{
+  color:#958b7d;
+  font:700 8px/1 var(--wt-body);
+  letter-spacing:.10em;
+  text-transform:uppercase;
+}
+
+#rerollFlow .wt-race-actions{
+  display:flex;
+  gap:5px;
+}
+
+#rerollFlow .wt-race-actions button{
+  min-height:27px;
+  padding:0 9px;
+  border:1px solid #514636;
+  border-radius:4px;
+  background:#131516;
+  color:#9f9587;
+  font:900 7px/1 var(--wt-body);
+  letter-spacing:.10em;
+  cursor:pointer;
+}
+
+#rerollFlow .wt-race-actions button:hover{
+  border-color:#896337;
+  color:#e0c391;
+  background:#211a13;
+}
+
+#rerollFlow .wt-class-pool{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(138px,1fr));
+  gap:7px;
+  padding:10px;
+}
+
+#rerollFlow .wt-class-toggle{
+  position:relative;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) 18px;
+  align-items:center;
+  gap:8px;
+  min-height:43px;
+  padding:5px 8px;
+  border:1px solid #3f3d39;
+  border-radius:5px;
+  background:linear-gradient(180deg,#17191a,#101213);
+  color:#8d867d;
+  text-align:left;
+  cursor:pointer;
+  opacity:.58;
+  transition:opacity .14s ease,border-color .14s ease,background .14s ease,transform .14s ease;
+}
+
+#rerollFlow .wt-class-toggle:hover{
+  opacity:.86;
+  transform:translateY(-1px);
+  border-color:#66523a;
+}
+
+#rerollFlow .wt-class-toggle img{
+  width:27px;
+  height:27px;
+  border-radius:4px;
+  filter:saturate(.45) brightness(.70);
+}
+
+#rerollFlow .wt-class-toggle span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:inherit;
+  font:800 10px/1.15 var(--wt-body);
+  white-space:nowrap;
+}
+
+#rerollFlow .wt-class-toggle i{
+  display:grid;
+  place-items:center;
+  width:17px;
+  height:17px;
+  border:1px solid #4d473e;
+  border-radius:50%;
+  color:transparent;
+  font:900 9px/1 Arial;
+  font-style:normal;
+  background:#0c0e0f;
+}
+
+#rerollFlow .wt-class-toggle.selected{
+  opacity:1;
+  border-color:color-mix(in srgb,var(--wt-class-color) 45%,#7a5934);
+  background:
+    linear-gradient(90deg,color-mix(in srgb,var(--wt-class-color) 12%,transparent),transparent 62%),
+    linear-gradient(180deg,#211b15,#111314);
+  color:#ead9bb;
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb,var(--wt-class-color) 62%,#b9853f),
+    inset 0 0 14px rgba(157,98,33,.06);
+}
+
+#rerollFlow .wt-class-toggle.selected img{
+  filter:none;
+}
+
+#rerollFlow .wt-class-toggle.selected i{
+  border-color:#a97838;
+  color:#f4ce7d;
+  background:#2b2014;
+}
+
+#rerollFlow .wt-final-eligibility{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-top:10px;
+  padding:10px 12px;
+  border:1px solid #40382d;
+  border-radius:6px;
+  background:rgba(255,255,255,.018);
+}
+
+#rerollFlow .wt-final-eligibility span{
+  color:#777068;
+  font:800 7px/1 var(--wt-body);
+  letter-spacing:.13em;
+}
+
+#rerollFlow .wt-final-eligibility strong{
+  color:#c5b69c;
+  font:800 9px/1.2 var(--wt-body);
+  text-align:right;
+}
+
+@media(max-width:760px){
+  #rerollFlow .wt-eligibility-toolbar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  #rerollFlow .wt-eligibility-actions{
+    width:100%;
+    justify-content:flex-start;
+  }
+  #rerollFlow .wt-class-pool{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:460px){
+  #rerollFlow .wt-class-pool{
+    grid-template-columns:1fr;
+  }
+  #rerollFlow .wt-race-pool-head{
+    align-items:flex-start;
+  }
+}
+
+/* ================================================================
+   LIVE DRAFT ACTIONS — NEW DRAFT / SETTINGS
+   ================================================================ */
+
+#draft .wt-draft-settings-wrap{
+  position:relative;
+  display:inline-flex;
+}
+
+#draft #draftSettings{
+  min-width:104px;
+}
+
+#draft .wt-draft-settings-wrap.is-locked #draftSettings{
+  opacity:.34!important;
+  filter:saturate(.35)!important;
+  cursor:not-allowed!important;
+}
+
+#draft .wt-draft-settings-wrap.is-locked:hover::after{
+  content:attr(data-tooltip);
+  position:absolute;
+  z-index:200;
+  right:0;
+  top:calc(100% + 9px);
+  width:max-content;
+  max-width:255px;
+  padding:9px 11px;
+  border:1px solid #695236;
+  border-radius:5px;
+  background:linear-gradient(180deg,#211b15,#101214);
+  color:#d7cab4;
+  font:700 10px/1.4 var(--wt-body);
+  letter-spacing:.01em;
+  text-transform:none;
+  white-space:normal;
+  box-shadow:0 10px 28px rgba(0,0,0,.55);
+}
+
+#draft .wt-draft-settings-wrap.is-locked:hover::before{
+  content:"";
+  position:absolute;
+  z-index:201;
+  right:18px;
+  top:calc(100% + 4px);
+  width:8px;
+  height:8px;
+  border-left:1px solid #695236;
+  border-top:1px solid #695236;
+  background:#211b15;
+  transform:rotate(45deg);
+}
+
+/* Editing an existing draft is deliberately a compact two-screen flow. */
+#rerollFlow.rr-settings-mode .rr-flow-progress{
+  display:none!important;
+}
+
+#rerollFlow.rr-settings-mode [data-rr-step="1"],
+#rerollFlow.rr-settings-mode [data-rr-step="3"],
+#rerollFlow.rr-settings-mode [data-rr-step="5"]{
+  display:none!important;
+}
+
+#rerollFlow.rr-settings-mode .rr-flow-head{
+  min-height:108px;
+}
+
+#rerollFlow.rr-settings-mode .rr-flow-kicker::after{
+  content:" · SETTINGS";
+  color:#9b7744;
+}
+

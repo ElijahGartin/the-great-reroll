@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Great Reroll • WoW Character Draft & Name Forge</title><meta name="description" content="The Great Reroll is an unofficial fan-made World of Warcraft character draft and name generator."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23100e0c'/%3E%3Cpath d='M16 14l13 13-6 6L10 20zm32 0L35 27l6 6 13-13zM22 34l7 7-13 13-7-7zm20 0l-7 7 13 13 7-7z' fill='%23f3d483'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23c99b50'/%3E%3C/svg%3E">
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The War Table • Community Toolkit for World of Warcraft: Forever</title><meta name="description" content="The Great Reroll is an unofficial fan-made World of Warcraft character draft and name generator."><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23100e0c'/%3E%3Cpath d='M16 14l13 13-6 6L10 20zm32 0L35 27l6 6 13-13zM22 34l7 7-13 13-7-7zm20 0l-7 7 13 13 7-7z' fill='%23f3d483'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23c99b50'/%3E%3C/svg%3E">
 
 
 
@@ -18,13 +18,14 @@
 
 
 <link rel="stylesheet" href="css/styles.css?v=campfire-3">
-</head><body class="gr-home-view"><main class="app"><div class="mast"><div><div class="muted gr-home-eyebrow">WORLD OF WARCRAFT FOREVER • CHARACTER &amp; GUILD TOOLKIT</div><h1>The Great Reroll</h1><!-- Hero Art Integrated Build --><div class="muted gr-home-tagline">Choose what you want to create.</div></div><span class="pill" id="modeBadge">OFFLINE MODE</span></div>
+<link rel="stylesheet" href="css/war-table-ui.css?v=2">
+</head><body class="gr-home-view"><main class="app"><div class="mast"><div><div class="muted gr-home-eyebrow">WORLD OF WARCRAFT: FOREVER • COMMUNITY TOOLKIT</div><h1>THE WAR TABLE</h1><!-- Hero Art Integrated Build --><div class="muted gr-home-tagline">Plan your next adventure.</div><div class="gr-home-community">A community toolkit built for <strong>World of Warcraft: Forever</strong></div></div><span class="pill" id="modeBadge">OFFLINE MODE</span></div>
 
 <nav id="grToolNav" class="gr-tool-nav hidden" aria-label="Tool navigation">
   <div class="gr-tool-nav-copy">
-    <span class="gr-tool-kicker">THE GREAT REROLL</span>
-    <strong id="grToolTitle">CHARACTER LOTTERY</strong>
-    <small id="grToolSubtitle">Configure your character draft.</small>
+    <span class="gr-tool-kicker">THE WAR TABLE</span>
+    <strong id="grToolTitle">THE GREAT REROLL</strong>
+    <small id="grToolSubtitle">Let fate choose your next character.</small>
   </div>
   <button type="button" class="btnx alt gr-home-button" id="grHomeButton">← HOME</button>
 </nav>
@@ -36,25 +37,10 @@
         <span class="gr-home-art-badge">FATE CHOOSES</span>
       </span>
       <span class="gr-home-card-copy">
-        <span class="gr-home-card-kicker">MODE 01</span>
-        <strong class="gr-home-card-title">CHARACTER LOTTERY</strong>
+        <strong class="gr-home-card-title">THE GREAT REROLL</strong>
         <span class="gr-home-card-tagline">Let fate choose your next character.</span>
-        <small>Each player gets random race + class choices, picks a character, and can use an optional re-spin before locking it in.</small>
-        <span class="gr-home-features" aria-hidden="true"><span>Race + Class</span><span>1–5 Choices</span><span>Optional Re-spin</span></span>
-        <em>START LOTTERY →</em>
-      </span>
-    </button>
-    <button type="button" class="gr-home-card gr-home-card-roster" id="grHomeRoster">
-      <span class="gr-home-art gr-home-art-roster" role="img" aria-label="A full party of fantasy heroes assembled together">
-        <span class="gr-home-art-badge">BUILD THE ROSTER</span>
-      </span>
-      <span class="gr-home-card-copy">
-        <span class="gr-home-card-kicker">MODE 02</span>
-        <strong class="gr-home-card-title">GUILD ROSTER DRAFT</strong>
-        <span class="gr-home-card-tagline">Draft an entire guild roster with friends.</span>
-        <small>Set the draft order, choose roles and eligible classes, and watch the shared character pool and guild composition update live.</small>
-        <span class="gr-home-features" aria-hidden="true"><span>Multiplayer</span><span>Draft Order</span><span>Roster Tracking</span></span>
-        <em>START ROSTER DRAFT →</em>
+        <small>Randomize your race and class, choose from the results, and lock in your next Forever character.</small>
+        <em>START THE REROLL →</em>
       </span>
     </button>
     <button type="button" class="gr-home-card gr-home-card-forge" id="grHomeForge">
@@ -62,16 +48,82 @@
         <span class="gr-home-art-badge">FORGE AN IDENTITY</span>
       </span>
       <span class="gr-home-card-copy">
-        <span class="gr-home-card-kicker">MODE 03</span>
         <strong class="gr-home-card-title">NAME FORGE</strong>
-        <span class="gr-home-card-tagline">Create a name that fits your character.</span>
-        <small>Choose a race, class and naming style, then forge three distinct Serious, Clever, or Silly names at a time.</small>
-        <span class="gr-home-features" aria-hidden="true"><span>Serious</span><span>Clever</span><span>Silly</span><span>Class Themed</span></span>
-        <em>FORGE NAMES →</em>
+        <span class="gr-home-card-tagline">Forge your identity.</span>
+        <small>Choose your race, class, and naming style, then generate character names that actually fit.</small>
+        <em>FORGE A NAME →</em>
       </span>
     </button>
-  </div>
+    <button type="button" class="gr-home-card gr-home-card-roster" id="grHomeRoster">
+      <span class="gr-home-art gr-home-art-roster" role="img" aria-label="A full party of fantasy heroes assembled together">
+        <span class="gr-home-art-badge">ASSEMBLE YOUR FORCES</span>
+      </span>
+      <span class="gr-home-card-copy">
+        <strong class="gr-home-card-title">GUILD HALL</strong>
+        <span class="gr-home-card-tagline">Build your team.</span>
+        <small>Plan guild rosters, assign roles, shape your composition, and draft characters with friends.</small>
+        <em>ENTER THE GUILD HALL →</em>
+      </span>
+    </button></div>
 </section>
+
+<div id="rerollFlow" class="rr-flow hidden" aria-hidden="true">
+  <div class="rr-flow-backdrop" data-rr-close></div>
+  <section class="rr-flow-shell wt-modal" role="dialog" aria-modal="true" aria-labelledby="rrFlowTitle">
+    <button class="rr-flow-close" type="button" aria-label="Close setup" data-rr-close>×</button>
+    <header class="rr-flow-head wt-modal-head"><div><span class="rr-flow-kicker">THE WAR TABLE · THE GREAT REROLL</span><h2 id="rrFlowTitle">Create your draft</h2><p id="rrFlowSubtitle">Choose how your group is playing.</p></div><div class="rr-flow-progress"><span class="active" data-rr-dot="1">1</span><i></i><span data-rr-dot="2">2</span><i></i><span data-rr-dot="3">3</span><i></i><span data-rr-dot="4">4</span><i></i><span data-rr-dot="5">5</span></div></header>
+    <div class="rr-flow-body wt-modal-body">
+      <section class="rr-flow-step active wt-flow-step" data-rr-step="1"><div class="rr-step-label wt-kicker">STEP 1 · SESSION</div><h3>How are you playing?</h3><p class="rr-step-intro">Run everything from one screen, or create a lobby for everyone to join.</p><div class="rr-choice-grid rr-choice-grid-2 wt-hero-grid"><button type="button" class="rr-choice-card wt-hero-choice selected" data-rr-session="local"><span class="wt-hero-art wt-hero-art-local" aria-hidden="true"><span class="rr-choice-icon rr-icon-local"></span></span><span class="wt-hero-copy"><strong>LOCAL DRAFT</strong><small>You host the draft from this device. Add the players, set the rules, and run the room.</small><em>One host · one screen</em></span></button><button type="button" class="rr-choice-card wt-hero-choice" data-rr-session="online"><span class="wt-hero-art wt-hero-art-online" aria-hidden="true"><span class="rr-choice-icon rr-icon-online"></span></span><span class="wt-hero-copy"><strong>ONLINE LOBBY</strong><small>Create a private room, share a lobby code, and let players join from their own devices.</small><em>Online sync preview</em></span></button></div></section>
+      <section class="rr-flow-step wt-flow-step" data-rr-step="2"><div class="rr-step-label">STEP 2 · RULES</div><h3>Build your draft</h3><p class="rr-step-intro">Set the core rules for the draft. You’ll refine the eligible character pool before launch.</p><div class="rr-settings-layout"><div class="rr-settings-grid"><label>Faction<select id="rrFaction" class="rr-field"><option value="Horde">Horde</option><option value="Alliance">Alliance</option><option value="Either">Either — randomize it</option></select></label><label>Character detail<select id="rrDetail" class="rr-field"><option value="class">Race + Class</option><option value="spec">Race + Class + Spec</option></select></label><label>Choices per player<select id="rrChoices" class="rr-field"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label><label>Duplicate combinations<select id="rrDuplicates" class="rr-field"><option value="unique">No duplicates</option><option value="repeat">Allow duplicates</option></select></label><label>Draft order<select id="rrOrder" class="rr-field"><option value="roll">Roll D100 for order</option><option value="random">Randomize automatically</option><option value="manual">Use player order</option></select></label><label>Pick timer<select id="rrTimer" class="rr-field"><option value="0">Off</option><option value="30">30 seconds</option><option value="60" selected>60 seconds</option><option value="90">90 seconds</option><option value="120">2 minutes</option></select></label></div><aside class="rr-draft-summary wt-panel"><span>YOUR DRAFT</span><strong id="rrSummaryFaction">HORDE</strong><div id="rrSummaryLines"></div></aside></div></section>
+      <section class="rr-flow-step wt-flow-step" data-rr-step="3"><div class="rr-step-label">STEP 3 · <span id="rrStep3Label">PLAYERS</span></div><div id="rrLocalPlayers"><h3>Who's rerolling?</h3><p class="rr-step-intro">Add everybody who will be in the draft. You can randomize the order later.</p><div id="rrPlayerList" class="rr-player-list"></div><button type="button" class="rr-add-player wt-btn wt-btn-secondary" id="rrAddPlayer">+ ADD PLAYER</button></div><div id="rrOnlineLobby" class="hidden"><h3>Create your lobby</h3><p class="rr-step-intro">Set up the room your group will join. This build previews the online flow; cross-device syncing still needs the lobby backend.</p><div class="rr-settings-grid"><label>Lobby name<input id="rrLobbyName" class="rr-field" maxlength="50" value="Friday Night Reroll"></label><label>Host name<input id="rrHostName" class="rr-field" maxlength="32" value="Host"></label><label>Password (optional)<input id="rrLobbyPassword" class="rr-field" maxlength="32" placeholder="Leave blank for no password"></label><label>Player limit<select id="rrLobbyLimit" class="rr-field"><option>4</option><option>5</option><option>6</option><option>8</option><option>10</option><option>20</option><option>40</option></select></label></div><button type="button" class="rr-create-lobby wt-btn wt-btn-primary" id="rrCreateLobby">CREATE LOBBY →</button><div id="rrLobbyCreated" class="rr-lobby-created hidden"><span>LOBBY CODE</span><strong id="rrLobbyCode">—</strong><small>Invite link preview</small><div class="rr-invite-row"><code id="rrInviteLink"></code><button id="rrCopyInvite" type="button">COPY</button></div><div class="rr-lobby-player"><b id="rrLobbyHostDisplay">Host</b><span>HOST · READY</span></div></div></div></section>
+      <section class="rr-flow-step wt-flow-step" data-rr-step="4">
+        <div class="rr-step-label wt-kicker">STEP 4 · ELIGIBILITY</div>
+        <h3>Customize the draft pool</h3>
+        <p class="rr-step-intro">Every valid race/class combination is enabled by default. Turn off anything you do not want appearing in the draft.</p>
+
+        <div class="wt-eligibility-toolbar">
+          <div>
+            <span class="wt-eligibility-eyebrow">CURRENT POOL</span>
+            <strong id="rrEligibilityCount">—</strong>
+          </div>
+          <div class="wt-eligibility-actions">
+            <button type="button" class="wt-btn wt-btn-secondary" id="rrEligibilityDefaults">USE DEFAULTS</button>
+            <button type="button" class="wt-btn wt-btn-secondary" id="rrEligibilityClear">CLEAR ALL</button>
+          </div>
+        </div>
+
+        <div id="rrEligibilityFactionTabs" class="wt-eligibility-factions hidden" aria-label="Faction eligibility">
+          <button type="button" data-elig-faction="Horde" class="active">HORDE</button>
+          <button type="button" data-elig-faction="Alliance">ALLIANCE</button>
+        </div>
+
+        <div id="rrEligibilityNotice" class="wt-eligibility-notice hidden"></div>
+        <div id="rrEligibilityGrid" class="wt-eligibility-grid"></div>
+      </section>
+
+      <section class="rr-flow-step wt-flow-step" data-rr-step="5">
+        <div class="rr-step-label wt-kicker">STEP 5 · LAUNCH</div>
+        <h3>When are you rerolling?</h3>
+        <p class="rr-step-intro">Jump into the draft now, or save the setup for later.</p>
+        <div class="rr-launch-grid">
+          <button type="button" class="rr-launch-card wt-option selected" data-rr-launch="now"><span class="rr-launch-icon rr-launch-now" aria-hidden="true"></span><strong>START NOW</strong><small>Enter the draft lobby immediately.</small></button>
+          <button type="button" class="rr-launch-card wt-option" data-rr-launch="schedule"><span class="rr-launch-icon rr-launch-later" aria-hidden="true"></span><strong>SCHEDULE DRAFT</strong><small>Save the setup with a date and time.</small></button>
+        </div>
+        <div id="rrScheduleWrap" class="rr-schedule-wrap hidden"><label>Draft date &amp; time<input type="datetime-local" id="rrScheduleAt" class="rr-field"></label></div>
+        <div class="rr-final-summary">
+          <div><span>SESSION</span><strong id="rrFinalSession">LOCAL DRAFT</strong></div>
+          <div><span>FACTION</span><strong id="rrFinalFaction">HORDE</strong></div>
+          <div><span>PLAYERS</span><strong id="rrFinalPlayers">4</strong></div>
+          <div><span>FORMAT</span><strong id="rrFinalFormat">RACE + CLASS</strong></div>
+        </div>
+        <div class="wt-final-eligibility"><span>ELIGIBILITY</span><strong id="rrFinalEligibility">ALL DEFAULT COMBINATIONS</strong></div>
+        <div id="rrOnlineNotice" class="rr-online-notice hidden">Online lobby creation is interactive in this build, but real cross-device joining/sync is not wired up yet.</div>
+        <div id="rrScheduledDone" class="rr-scheduled-done hidden"></div>
+      </section>
+    </div>
+    <footer class="rr-flow-foot wt-modal-foot"><button type="button" class="rr-flow-back wt-btn wt-btn-secondary hidden" id="rrBack">← BACK</button><div class="rr-flow-foot-spacer"></div><button type="button" class="rr-flow-next wt-btn wt-btn-primary" id="rrNext">CONTINUE →</button></footer>
+  </section>
+</div>
 
 <div id="nameForgeLauncher" class="name-forge-launcher"><div><span class="forge-kicker">NEW CHARACTER TOOL</span><strong>NAME FORGE</strong><small>Pick your character, choose Serious, Clever, or Silly, and forge names that actually feel different.</small></div><button type="button" class="btnx name-forge-launch-btn" id="openNameForge">🔥 OPEN NAME FORGE →</button></div>
 <section id="setup"><div class="panelx mode-panel"><h2>Choose your draft</h2><p class="muted">Pick an experience first. Your settings and illustrated draft board will adapt to your choice.</p><div class="mode-grid"><button type="button" class="mode-card chosen" id="modeLottery" aria-pressed="true"><span class="mode-art lottery-art">⚔</span><span class="mode-copy"><b>CHARACTER LOTTERY</b><small>Let fate decide your next main. Draw illustrated race + class cards and choose your character.</small><em>SELECTED</em></span></button><button type="button" class="mode-card" id="modeRoster" aria-pressed="false"><span class="mode-art roster-art">🛡</span><span class="mode-copy"><b>GUILD ROSTER DRAFT</b><small>Assemble your raid. Draft race + role first, then eligible class + specialization.</small><em>CHOOSE MODE</em></span></button></div><div class="notice good" id="modeDescription">Character Lottery: one illustrated character draft for every player.</div></div><div class="panelx"><h2>1 · Guild & faction</h2><div class="cols"><label>Guild name<br><input class="field" id="guild" value="Thunder Rock Gaming" maxlength="50"></label><label>Faction<br><select class="field" id="faction"><option>Horde</option><option>Alliance</option></select></label><select id="format" class="hidden" aria-label="Internal draft format"><option value="class">Race + class</option><option value="twostage">Guild roster</option><option value="spec">Race + class + specialization</option></select><label id="lotterySpecWrap">Character lottery detail<br><select class="field" id="lotterySpec"><option value="class">Race + class (default)</option><option value="spec">Include specialization</option></select></label><label id="stageTwoOptionsWrap" class="hidden">Stage 2 options per turn<br><select class="field" id="stageTwoOptions"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label><label>Character name generator<br><select class="field" id="nameGenerator"><option value="off" selected>Disabled (default)</option><option value="on">Enabled — suggest character names</option></select></label><label>Draft order<br><select class="field" id="draftOrder"><option value="roll" selected>Roll for order — D100 (default)</option><option value="random">Randomize order automatically</option><option value="manual">Use player order as entered</option></select></label><label>Pick timer<br><select class="field" id="pickTimer"><option value="0">Off — no time limit</option><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="45">45 seconds</option><option value="60" selected>60 seconds (default)</option><option value="90">90 seconds</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></label><label>Options per turn<br><select class="field" id="options"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label><label>Duplicates<br><select class="field" id="duplicates"><option value="unique">Unique race/class combinations</option><option value="repeat">Allow repeat combinations</option></select></label><div id="rosterEnforceWrap" class="hidden"><label class="rowx" style="align-items:center;gap:10px"><input type="checkbox" id="enforceRoster" style="width:18px;height:18px"> <span>Enforce guild requirements</span></label><p class="help" id="enforceExplanation">Off: roster goals are tracked, but players can choose freely.</p></div><select id="enforce" class="hidden" aria-label="Internal requirement enforcement"><option value="none">None</option><option value="soft">Track</option><option value="hard">Enforce</option></select></div><p class="help" id="twoStageHelp">Guild roster mode drafts race + intended role first, then each player chooses an eligible class + spec. Race and role remain locked. Role targets can be enforced during Stage 1. Class targets in this mode are tracked as goals and are not guaranteed.</p><p class="help">Unique mode reserves a race/class combination after it is picked, even if specialization drafting is enabled. One-option mode automatically assigns the revealed character.</p></div>
@@ -134,7 +186,7 @@
 
   </div>
 </section>
-<section id="rollStage" class="roll-panel roll-hidden" aria-live="polite"><h2>⚔ ROLL FOR INITIATIVE ⚔</h2><p class="roll-sub">Each player rolls a D100. Highest roll picks first. Ties trigger a reroll between tied players.</p><div id="rollHeading" class="roll-note"></div><div class="roll-die"><div><small>D100</small><span id="rollFace">?</span></div></div><div class="roll-action"><button class="btnx" id="rollStart" type="button">⚔ START ROLLING</button><button class="btnx roll-hidden" id="rollAction" type="button">🎲 ROLL D100</button></div><div id="rollNotice" class="roll-note"></div><div id="rollEntries" class="roll-grid"></div><div id="rollResults" class="roll-result roll-hidden"></div><div class="roll-action"><button class="btnx roll-hidden" id="rollBegin" type="button">BEGIN CHARACTER DRAFT →</button></div></section><section id="draft" class="hidden"><div id="preDraftLobby" class="panelx hidden"><div class="lobby-tag">⚔ THE GREAT REROLL · DRAFT LOBBY</div><h2>Ready to draft?</h2><p class="muted">The order is locked. Take a moment to get everyone ready; the pick clock starts only when you press Start the Draft.</p><div id="lobbyOrder" class="lobby-order"></div><div id="lobbySettings" class="notice"></div><button class="btnx" id="launchDraft" type="button">⚔ START THE DRAFT</button></div><div id="liveDraftContent"><div class="panelx"><div class="rowx" style="justify-content:space-between"><div><h2 id="draftTitle"></h2><div id="turnLabel" class="muted"></div></div><div class="rowx"><button class="btnx alt" id="backSetup">New draft / settings</button><button class="btnx alt" id="export">Export roster CSV</button></div></div><div id="draftHostControls" class="rowx" style="margin-top:12px;align-items:center;gap:12px"><button class="btnx alt" id="pauseDraft" type="button">⏸ PAUSE DRAFT</button><span class="muted" id="draftStatus">Waiting for host</span></div><div id="pickTimerDisplay" class="notice" role="timer" aria-live="off" style="display:none; margin-top:12px; font-weight:bold; font-size:18px"></div><div id="draftMessage" class="notice hidden"></div><div id="phaseControls" class="rowx hidden"><button class="btnx" id="beginStageTwo">BEGIN STAGE 2 · CLASS & SPEC DRAFT →</button></div></div><div class="cols" style="grid-template-columns:minmax(0,2fr) minmax(250px,1fr)"><div><div class="panelx"><h2 id="offerTitle">Your options</h2><div id="offers"></div><div id="characterPreview" class="character-preview hidden"></div><div id="confirmArea" class="hidden"><label id="characterNameWrap">Character name (optional)<br><input class="field" id="charName" maxlength="36" placeholder="Enter a name or use a suggestion"></label><div class="rowx"><button class="btnx alt" id="rerollName">Generate another name</button><button class="btnx" id="confirm">Lock in selection</button><button class="btnx alt" id="cancel">Back to options</button></div></div></div><div class="panelx"><h2>Guild composition</h2><div id="tracker"></div></div></div><div class="panelx"><h2>Live draft board</h2><div id="roster"></div><div class="live-picks"><h3>⚔ LIVE PICKS</h3><div id="livePicks"></div></div></div></div><div class="panelx"><h2>Complete character pool</h2><p class="muted small">Browse every enabled race/class combination. Drafted combinations are marked below.</p><div id="fullPool" class="full-pool"></div></div></div></section><footer class="site-footer" aria-label="About The Great Reroll"><div class="site-footer-inner"><p class="site-footer-legal">Unofficial fan-made World of Warcraft tool · Not affiliated with Blizzard Entertainment · © 2026 The Great Reroll</p></div></footer></main>
+<section id="rollStage" class="roll-panel roll-hidden" aria-live="polite"><h2>⚔ ROLL FOR INITIATIVE ⚔</h2><p class="roll-sub">Each player rolls a D100. Highest roll picks first. Ties trigger a reroll between tied players.</p><div id="rollHeading" class="roll-note"></div><div class="roll-die"><div><small>D100</small><span id="rollFace">?</span></div></div><div class="roll-action"><button class="btnx" id="rollStart" type="button">⚔ START ROLLING</button><button class="btnx roll-hidden" id="rollAction" type="button">🎲 ROLL D100</button></div><div id="rollNotice" class="roll-note"></div><div id="rollEntries" class="roll-grid"></div><div id="rollResults" class="roll-result roll-hidden"></div><div class="roll-action"><button class="btnx roll-hidden" id="rollBegin" type="button">BEGIN CHARACTER DRAFT →</button></div></section><section id="draft" class="hidden"><div id="preDraftLobby" class="panelx hidden"><div class="lobby-tag">⚔ THE GREAT REROLL · DRAFT LOBBY</div><h2>Ready to draft?</h2><p class="muted">The order is locked. Take a moment to get everyone ready; the pick clock starts only when you press Start the Draft.</p><div id="lobbyOrder" class="lobby-order"></div><div id="lobbySettings" class="notice"></div><button class="btnx" id="launchDraft" type="button">⚔ START THE DRAFT</button></div><div id="liveDraftContent"><div class="panelx"><div class="rowx" style="justify-content:space-between"><div><h2 id="draftTitle"></h2><div id="turnLabel" class="muted"></div></div><div class="rowx"><button class="btnx alt" id="backSetup">NEW DRAFT</button><span class="wt-draft-settings-wrap" id="draftSettingsWrap" data-tooltip="Settings can’t be changed during an active draft."><button class="btnx alt" id="draftSettings" type="button">SETTINGS</button></span><button class="btnx alt" id="export">Export roster CSV</button></div></div><div id="draftHostControls" class="rowx" style="margin-top:12px;align-items:center;gap:12px"><button class="btnx alt" id="pauseDraft" type="button">⏸ PAUSE DRAFT</button><span class="muted" id="draftStatus">Waiting for host</span></div><div id="pickTimerDisplay" class="notice" role="timer" aria-live="off" style="display:none; margin-top:12px; font-weight:bold; font-size:18px"></div><div id="draftMessage" class="notice hidden"></div><div id="phaseControls" class="rowx hidden"><button class="btnx" id="beginStageTwo">BEGIN STAGE 2 · CLASS & SPEC DRAFT →</button></div></div><div class="cols" style="grid-template-columns:minmax(0,2fr) minmax(250px,1fr)"><div><div class="panelx"><h2 id="offerTitle">Your options</h2><div id="offers"></div><div id="characterPreview" class="character-preview hidden"></div><div id="confirmArea" class="hidden"><label id="characterNameWrap">Character name (optional)<br><input class="field" id="charName" maxlength="36" placeholder="Enter a name or use a suggestion"></label><div class="rowx"><button class="btnx alt" id="rerollName">Generate another name</button><button class="btnx" id="confirm">Lock in selection</button><button class="btnx alt" id="cancel">Back to options</button></div></div></div><div class="panelx"><h2>Guild composition</h2><div id="tracker"></div></div></div><div class="panelx"><h2>Live draft board</h2><div id="roster"></div><div class="live-picks"><h3>⚔ LIVE PICKS</h3><div id="livePicks"></div></div></div></div><div class="panelx"><h2>Complete character pool</h2><p class="muted small">Browse every enabled race/class combination. Drafted combinations are marked below.</p><div id="fullPool" class="full-pool"></div></div></div></section><footer class="site-footer" aria-label="About The War Table"><div class="site-footer-inner"><p class="site-footer-legal">Unofficial fan-made World of Warcraft tool · Not affiliated with Blizzard Entertainment · © 2026 The Great Reroll</p></div></footer></main>
 
 
 
@@ -249,5 +301,24 @@
 <script src="data/names.js"></script>
 <script src="js/analytics.js"></script>
 <script src="js/app.js"></script>
+<script src="js/war-table-ui.js?v=1"></script>
+<script src="js/reroll-flow.js?v=1"></script>
+
+<script>
+(function(){
+  const title=document.getElementById('grToolTitle');
+  const subtitle=document.getElementById('grToolSubtitle');
+  function renameTool(kind){
+    if(!title||!subtitle)return;
+    if(kind==='lottery'){title.textContent='THE GREAT REROLL';subtitle.textContent='Let fate choose your next character.';}
+    if(kind==='forge'){title.textContent='NAME FORGE';subtitle.textContent='Forge your character identity.';}
+    if(kind==='roster'){title.textContent='GUILD HALL';subtitle.textContent='Build your roster and shape your composition.';}
+  }
+  document.getElementById('grHomeLottery')?.addEventListener('click',()=>setTimeout(()=>renameTool('lottery'),0));
+  document.getElementById('grHomeForge')?.addEventListener('click',()=>setTimeout(()=>renameTool('forge'),0));
+  document.getElementById('grHomeRoster')?.addEventListener('click',()=>setTimeout(()=>renameTool('roster'),0));
+})();
+</script>
+
 <script src="js/campfire.js?v=7"></script>
 </body></html>
