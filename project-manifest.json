@@ -8,7 +8,8 @@
     "data/characters.js",
     "data/names.js",
     "js/analytics.js",
-    "js/app.js"
+    "js/app.js",
+    "js/campfire.js"
   ],
   "asset_roots": [
     "assets/backgrounds",

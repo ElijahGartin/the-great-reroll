@@ -2243,3 +2243,21 @@ body[data-gr-theme="alliance"] .roll-panel {
   .gr-home-card-title{font-size:22px!important}
 }
 
+
+/* Campfire ambience stays above the scenery and below every interactive panel. */
+.gr-campfire{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;user-select:none}
+body:not(.gr-home-view) .gr-campfire{display:none}
+@media(prefers-reduced-motion:reduce){.gr-campfire{display:none!important}}
+
+/* An explicit viewport layer avoids body/root background sizing against page height. */
+body.gr-home-view[data-gr-theme="home"]{background-image:none}
+.gr-campfire-scene{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background-color:#0b0b0c;
+  background-image:linear-gradient(rgba(5,5,6,.20),rgba(5,5,6,.48)),url("../assets/backgrounds/home.png");
+  background-repeat:no-repeat;background-position:center bottom;background-size:cover;
+}
+body:not(.gr-home-view) .gr-campfire-scene{display:none}
+
+/* Preserve the foreground fire when wide screens crop the cover image. */
+body.gr-home-view{background-position:center bottom}
