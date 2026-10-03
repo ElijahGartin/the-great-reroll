@@ -1,12 +1,17 @@
 (()=>{
   const config={
     provider:'umami',
+    // Activation: replace this placeholder with wowwartable.com's Umami Website ID.
+    // See README.md: Analytics activation. Do not paste an API key here.
     websiteId:'PASTE_UMAMI_WEBSITE_ID_HERE',
     scriptUrl:'https://cloud.umami.is/script.js',
-    domains:'johnnywow.github.io'
+    domains:'wowwartable.com'
   };
   window.GR_ANALYTICS_CONFIG=config;
-  const enabled=config.websiteId && !config.websiteId.startsWith('PASTE_');
+  // Only the public HTTPS host may load Umami or queue/send events.
+  const isPublicSite=window.location.protocol==='https:' &&
+    window.location.hostname===config.domains && !window.location.port;
+  const enabled=isPublicSite && config.websiteId && !config.websiteId.startsWith('PASTE_');
   const queue=[];
   window.grTrack=function(name,data){
     if(!enabled) return;

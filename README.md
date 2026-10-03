@@ -42,3 +42,33 @@ assets/
 
 ## Recommended next step
 Test this Phase 2 build locally and on GitHub Pages. Once confirmed stable, we can split `js/app.js` into focused modules such as `draft.js`, `name-forge.js`, and `ui.js`, and then begin the animated homepage work.
+
+## Analytics activation
+
+Analytics is configured in `js/analytics.js`. The only remaining code activation
+step is replacing `PASTE_UMAMI_WEBSITE_ID_HERE` in `config.websiteId` with the real
+Umami Cloud Website ID for `wowwartable.com`. No valid ID was available when this
+configuration was updated, so the placeholder intentionally disables tracking.
+
+Copy the `data-website-id` value from that website's Umami tracking code and paste
+only the ID between the existing quotes:
+
+```js
+websiteId:'PASTE_UMAMI_WEBSITE_ID_HERE',
+```
+
+Use the Website ID, not an API key, account ID, or entire script tag. Commit the
+replacement and let GitHub Pages deploy it. The Umami Cloud script URL and custom
+domain are already configured; `index.html` already loads the analytics module.
+
+The loader and `grTrack` are enabled only on `https://wowwartable.com` with no
+nonstandard port. They remain disabled on local `file:` pages, localhost,
+loopback/LAN addresses, preview hosts, `johnnywow.github.io`, and subdomains
+(including `www.wowwartable.com`). Umami's `data-domains` is also set to
+`wowwartable.com`. Query-string exclusion and existing event behavior are preserved.
+
+After deploying a real ID, visit `https://wowwartable.com` and check the browser
+Network panel for `https://cloud.umami.is/script.js` and a successful Umami
+collection request; confirm the visit appears in the site's Umami dashboard.
+Opening the site locally must produce no Umami script or collection requests.
+With the placeholder, no Umami script should load even on the public domain.
