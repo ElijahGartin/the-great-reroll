@@ -8,8 +8,21 @@ The existing turn-based draft is unchanged.
 
 Choose player count and names, Horde/Alliance/Either, eligible combinations,
 bonus points per player (default 50), and steal attempts per player (default 1).
-Every hand contains exactly three unique race/class combinations, with no overlap
-between hands. The enabled pool must contain at least `players × 3` combinations.
+Every hand contains exactly three different classes. Copies per combination can
+be set to one (unique across the table) or two (the new default). Two copies
+permits up to two players to finish with the same race/class. Capacity requires
+at least `ceil(players × 3 / copies)` enabled combinations, plus sufficient
+class variety to give every hand three classes. Fourteen players need 42 cards,
+so at two copies at least 21 combinations are necessary; class composition also
+matters. Physical copies have separate IDs and protection states.
+
+Balanced hands (default on) build the entire table with a minimum-cost allocation:
+three distinct classes per hand is required, one tank/healer-capable class plus
+two DPS-focused classes is preferred, three DPS-focused classes are allowed, and
+other role mixes are accepted if needed by the selected pool. Role classification
+uses the existing CLASS_SPECS data, not live game rules. Race variety is preferred
+when assigning combinations. Hands are shuffled among players after allocation.
+Turning balance off removes role preference, but retains three different classes.
 Either randomly selects one faction; both enabled pools must satisfy capacity.
 Zero steal attempts skips defense and contests. A single player also goes directly
 to final selection. Player count is bounded by the enabled pool; the input accepts
@@ -25,6 +38,8 @@ to final selection. Player count is bounded by the enabled pool; the input accep
    choose another player's unprotected card, offer an unprotected card from your
    own hand, and commit whole attack points within your reserve. Passing uses that
    turn. No automatic timeout or automatic point spending occurs.
+   Both resulting hands must keep three different classes. Only valid swaps are
+   shown; invalid swaps are rejected before rolling or spending points.
 4. Both players roll an independent D100 (1–100 inclusive). Attacker total is roll
    plus committed points; defender total is roll plus target slot defense. The
    attacker must strictly exceed the defender. Ties favor the defender. Attack
@@ -44,8 +59,20 @@ leaving the page clears it. New Game confirms before clearing the current game.
 separate dialog and setup state; `css/deal-everyone.css` is scoped to this mode.
 Character pools and existing artwork come from `data/characters.js`.
 
-Run `node --test tests/deal-engine.test.cjs`. Coverage includes variable player
+Run `node --test tests/*.test.cjs`. Coverage includes variable player
 counts, pool capacity, distinct hands after swaps, point limits and spending,
 defender-winning ties, protected cards, repeated rounds, passing, phase guards,
 and final picks. Random rolls are casual client-side randomness, not a
 server-authoritative competition system.
+
+## Saved player groups
+
+Saved groups are shared between regular draft setup (Players step) and Deal
+Everyone setup. Save as new, load, update, rename, and delete affect only browser
+local storage (`war-table-player-groups-v1`). Loading copies names into the current
+setup; changes do not rewrite the saved group until Update group is clicked.
+An update or deletion asks for confirmation. Groups survive refresh and browser
+restart, but do not sync across devices and can be lost if site data is cleared.
+Export creates a versioned JSON backup. Import validates all entries, keeps existing
+groups, and creates renamed copies when names collide. No player names are sent
+to a server. Groups contain names only, not hand allocations or active game state.
