@@ -76,3 +76,17 @@ restart, but do not sync across devices and can be lost if site data is cleared.
 Export creates a versioned JSON backup. Import validates all entries, keeps existing
 groups, and creates renamed copies when names collide. No player names are sent
 to a server. Groups contain names only, not hand allocations or active game state.
+
+## Sequential reveal
+
+Start the Reveals assigns all hands together, then shows them face down. Players
+reveal in setup order; the randomized steal order is separate. Roll My Heroes
+starts three vertical artwork reels, stopping at approximately 1.9, 2.45, and
+3 seconds. Next Player is available only after that hand lands. Previously
+revealed hands remain visible. No defense allocation or final choices are shown
+until the last player has revealed and the host continues.
+
+Skip Animation lands the same assigned hand immediately. Reduced-motion mode
+reveals immediately without the spinning effect. Closing during a spin cancels
+only the animation; reopening lets that player reveal the same assigned cards.
+The reveal does not reroll, spend points, or change copy limits or hand balance.
