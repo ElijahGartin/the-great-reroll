@@ -32,6 +32,16 @@ both architectures natively through mTLS remote builders without privileged DinD
 Each immutable quarantine tag includes the full commit SHA and Jenkins build number.
 The pipeline refuses existing image/chart tags instead of overwriting them.
 
+The runtime copies only the official Node 24.21.0 binary and its full license
+from a digest-pinned Debian 13 source image into a digest-pinned
+[distroless CC Debian 13 image](https://github.com/GoogleContainerTools/distroless).
+This retains the glibc runtime for both architectures and omits unused package
+managers, shells, and OS administration tools. UID/GID 1000, the writable `/data`
+directory, and Debian package/license metadata remain intact. Review both base
+digests when updating Node or the OS; verify the distroless publisher signature
+using its [documented identity](https://github.com/GoogleContainerTools/distroless#how-do-i-verify-distroless-images).
+Use the Node-native maintenance commands in the [runbook](kubernetes.md).
+
 Trivy must pass HIGH/CRITICAL checks on **each child image digest**. Syft generates
 one SPDX SBOM per architecture and one for the packaged chart contents. The SBOM
 manifest binds these artifacts to their immutable OCI digests and the source SHA.

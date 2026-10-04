@@ -6,7 +6,7 @@ This records tests of the implementation on branch `feat/persistent-multiplayer`
 
 - `npm run check`: browser/data/server/test/script JavaScript syntax passed.
 - `npm test`: **46 tests passed**, including both game modes, roster feasibility, timers, independent guest permissions, stale/concurrent/idempotent commands, restart recovery, cookie/Origin boundaries, input limits, seat removal, export redaction/formula protection, UI retries/escaping, WAL-aware backups, and private-data-free metrics.
-- The same 45 tests passed as UID 1000 under the pinned Node **24.21.0** container runtime (`NODE_ENV=test` for the test fixtures; production HTTPS startup behavior is explicitly tested).
+- The same 46 tests passed as UID 1000 under the pinned Node **24.21.0** container runtime (`NODE_ENV=test` for the test fixtures; production HTTPS startup behavior is explicitly tested).
 - Helm lint, rendered security/storage checks, and invalid configuration rejection tests passed.
 - Images built for **linux/amd64 and linux/arm64**. The running arm64 image reported Node 24.21.0, SQLite 3.53.4, and UID 1000. Its root filesystem was read-only and all capabilities dropped.
 - An independent review found no unresolved code issues after fixes and re-review.
@@ -44,3 +44,26 @@ The disposable cluster, containers, test volumes, private test credentials, and 
 The [deployment runbook](kubernetes.md) specifies the image, values, storage requirements, backup/restore, and rollback procedure. Before admitting users on the real environment, validate its registry pull permissions, CSI access mode and locking, HTTPS origin/certificate/ingress routing, and separate physical devices over the final hostname. Workload capacity and high availability were not tested or promised: this is a single-replica release with upgrade downtime and configurable limits.
 
 Saved rooms default to 30 days of inactivity. Hosts explicitly pause timed games and transfer hosting when needed. There is no automatic host takeover or credential reset; the [user guide](../README.md#play-and-return-later) documents recovery and lost-credential behavior.
+
+## Minimal runtime verification — 2026-10-04
+
+The runtime now uses the same Node 24.21.0 binary on digest-pinned distroless
+CC Debian 13. The publisher signature of the exact distroless index was verified
+with its documented Google identity and transparency-log verification.
+
+- Local AMD64 and ARM64 builds each passed all 46 tests as UID 1000, with a
+  read-only root filesystem, all capabilities dropped, and no privilege escalation.
+- Trivy 0.71.0 identified Debian 13.7 and 14 OS packages in each complete image;
+  both passed the HIGH/CRITICAL gate without exclusions or ignoring unfixed findings.
+- The full Node license and Debian package metadata remain in the runtime.
+- Syft 1.18.1 identified Node 24.21.0, all 14 Debian packages, and the application
+  in both SPDX SBOMs.
+- The ARM64 runtime passed the paused-game seed, container restart, seat recovery,
+  completion, and JSON/CSV export smoke test. It reported SQLite 3.53.4 and
+  UID 1000; `/data` remained owned by UID 1000.
+- The shell-free backup/restore runbook commands passed against the same runtime:
+  byte-identical restore, UID 1000/mode 0600, existing-file refusal, and cleanup
+  of a corrupt transfer. Disposable containers and volumes were removed.
+
+These local checks do not replace the signed Jenkins release or verification of
+its final immutable digests in the target cluster.

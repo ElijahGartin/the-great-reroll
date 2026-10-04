@@ -26,6 +26,16 @@ assert.match(normal, /path: \/healthz/);
 assert.match(normal, /path: \/readyz/);
 assert.match(normal, /mountPath: \/data/);
 assert.match(normal, /mountPath: \/tmp/);
+const maintenance = render([origin, 'maintenanceMode=true'], true);
+assert.match(maintenance, /replicas: 0/);
+assert.match(maintenance, /kind: PersistentVolumeClaim/);
+assert.match(maintenance, /helm.sh\/resource-policy: keep/);
+assert.match(maintenance, /type: Recreate/);
+assert.match(render([origin, 'maintenanceMode=false'], true), /replicas: 1/);
+for (const invalid of ['maintenanceMode=invalid', 'replicaCount=0', 'replicaCount=2']) {
+  render([origin, 'maintenanceMode=true', invalid], false);
+}
+
 const ingress = render([origin, 'ingress.enabled=true', 'ingress.host=game.example.invalid', 'ingress.tlsSecretName=game-tls'], true);
 assert.match(ingress, /kind: Ingress/);
 const existing = render([origin, 'persistence.existingClaim=restored-rooms'], true);

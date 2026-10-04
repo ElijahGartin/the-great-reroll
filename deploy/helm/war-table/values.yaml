@@ -6,6 +6,8 @@ image:
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 replicaCount: 1
+# Stop the single writer through GitOps while restoring to a new claim.
+maintenanceMode: false
 publicOrigin: ""
 roomTtlDays: 30
 maxRooms: 1000
