@@ -103,3 +103,55 @@
 #dealDialog .sel-footer summary{letter-spacing:normal}
 @media(min-width:701px) and (max-height:820px){#dealDialog .sel-rosters{gap:2px;grid-auto-rows:minmax(31px,1fr)}#dealDialog .sel-team{min-height:31px;padding:2px 5px}#dealDialog .sel-team header{line-height:1;margin-bottom:1px}#dealDialog .sel-team h3{font-size:10px;line-height:1}#dealDialog .sel-team header span{font-size:8px;line-height:1}#dealDialog .sel-mini-cards img{height:16px;width:16px}#dealDialog .sel-mini-cards>span,#dealDialog .sel-mini-cards b{font-size:8px;line-height:1}}
 #dealDialog .sel-footer{flex-direction:row;opacity:1}
+/* One unmistakable actor, one instruction, one physical dice interaction. */
+#dealDialog .sel-spotlight{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:12px 18px;margin:-6px -6px 18px;background:linear-gradient(100deg,#70441f65,#171b2355);border:1px solid #c59c56;border-left:5px solid #f0cb7c;border-radius:6px}
+#dealDialog .sel-actor-name{font:700 clamp(28px,3vw,44px)/1.1 Georgia,serif;color:#fff1cf;margin:5px 0;overflow-wrap:anywhere}
+#dealDialog .sel-spotlight p{font-size:13px;line-height:1.4;margin:6px 0 0;color:#e5d5bb}
+#dealDialog .sel-spotlight .deal-kicker{font-weight:800;color:#ffcf77;letter-spacing:2px}
+#dealDialog .sel-turn-meta{display:grid;gap:4px;text-align:right;flex-shrink:0;font-size:12px;color:#dac9ad}
+#dealDialog .sel-turn-meta small{color:#c1b398}
+#dealDialog .sel-team.is-acting{outline:1px solid #f8d181;outline-offset:-1px;background:#513820;border-left:4px solid #ffe0a1}
+#dealDialog .sel-team.is-acting header span{color:#ffe6a9;font-weight:800}
+#dealDialog .sel-choice-guide{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;color:#c9bca8}
+#dealDialog .sel-choice-guide b{display:block;color:#f3d483;font-size:13px}
+#dealDialog .wt-order-layout{display:grid;grid-template-columns:minmax(210px,.8fr) minmax(0,1.6fr);gap:24px;align-items:center}
+#dealDialog .wt-order-layout .sel-order-grid{margin:0;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+#dealDialog .wt-order-layout .sel-order-grid>div{padding:8px;gap:3px}
+#dealDialog .wt-order-layout .sel-order-grid small{height:auto;font-size:9px}
+#dealDialog .wt-order-layout .sel-order-grid .is-up{border-color:#f6cf7a;background:#463322}
+#dealDialog .wt-dice-tray{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:210px;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at center,#466c5250,#18241f70 60%,#101719);border:2px solid #5d4d35;box-shadow:inset 0 0 0 5px #0e1412,inset 0 0 38px #0009;border-radius:18px;padding:24px 12px 10px}
+#dealDialog .wt-dice-target{position:absolute;top:12px;letter-spacing:4px;font:10px Georgia,serif;color:#c6ac7566}
+#dealDialog button.wt-hand-die{padding:0;margin:0;position:relative;width:130px;height:130px;min-height:0;border:0;background:none;box-shadow:none;cursor:grab;color:#dfbd73;touch-action:none;user-select:none;filter:drop-shadow(0 12px 6px #000a);z-index:1}
+#dealDialog .wt-hand-die svg{width:100%;height:100%;display:block;pointer-events:none;stroke:currentColor;stroke-width:2}
+#dealDialog .wt-hand-die>span{position:absolute;left:0;right:0;top:53px;text-align:center;color:#fff0c7;font:700 24px Georgia,serif;text-shadow:0 2px 3px #000;pointer-events:none}
+#dealDialog .wt-hand-die.is-grabbed{cursor:grabbing;filter:drop-shadow(0 20px 9px #000a)}
+#dealDialog .wt-dice-tray p{font-size:11px;color:#cbbf9f;margin:10px 0 0}
+#dealDialog .wt-dice-actions{display:grid;justify-items:center;gap:7px;margin:12px 0}
+#dealDialog .wt-dice-actions span{font-size:10px;color:#b7ab98}
+#dealDialog .wt-roll-score{color:var(--roll-color);font:800 30px/1.2 Georgia,serif;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000;display:inline-block}
+#dealDialog .wt-roll-score.sel-die{color:var(--roll-color);border-color:var(--roll-color);background:#11151a;display:grid}
+#dealDialog .wt-roll-score.is-large{font-size:110px;text-shadow:0 0 30px color-mix(in srgb,var(--roll-color) 30%,transparent);display:block;margin:5px 0}
+#dealDialog .wt-roll-reveal{text-align:center;padding:8px 12px 20px;border:1px solid var(--roll-color);border-radius:8px;background:radial-gradient(ellipse at top,#242932,#101317 80%)}
+#dealDialog .wt-roll-tier{display:block;color:var(--roll-color);font-size:14px;letter-spacing:2px}
+#dealDialog .wt-roll-equation{font-size:22px;color:#e9d5b1}
+#dealDialog .wt-roll-equation span{font-size:16px;color:#c7b89e}
+#dealDialog .wt-roll-equation strong{font-size:32px;color:#fff0cc}
+#dealDialog .wt-locked-bonus{text-align:center;font-size:15px;color:#dcc89d}
+#dealDialog .sel-controls>.wt-dice-tray{max-width:510px;margin:auto}
+#dealDialog .wt-roll-legend{padding:7px 10px;margin:10px 0 0;font-size:10px;clear:both}
+#dealDialog .wt-roll-legend summary{font-size:11px}
+#dealDialog .wt-roll-legend>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+#dealDialog .wt-roll-legend b{color:var(--roll-color)}
+#dealDialog .wt-throw-animation{min-height:340px;justify-content:center;flex-direction:column;background:radial-gradient(ellipse,#254334,#111719);border:2px solid #726044;border-radius:18px}
+#dealDialog .wt-throw-animation .sel-die{width:110px;height:110px;animation:wtToss .8s ease-out both;background:#242a32;color:#ffe7b5}
+@keyframes wtToss{0%{transform:translate(-90px,-35px) rotate(-70deg) scale(1.1)}25%{transform:translate(60px,15px) rotate(150deg) scale(.8)}50%{transform:translate(-35px,-25px) rotate(290deg) scale(1)}75%{transform:translate(15px,5px) rotate(340deg) scale(.9)}100%{transform:translate(0) rotate(360deg) scale(1)}}
+@media(min-width:701px) and (max-height:820px){#dealDialog .sel-spotlight{padding:8px 12px;margin-bottom:12px}#dealDialog .sel-actor-name{font-size:30px}#dealDialog .sel-spotlight p{font-size:11px}#dealDialog .wt-dice-tray{min-height:180px}#dealDialog button.wt-hand-die{width:110px;height:110px}#dealDialog .wt-hand-die>span{top:44px;font-size:22px}#dealDialog .wt-order-layout{gap:14px}#dealDialog .wt-order-layout .sel-order-grid>div{padding:5px}#dealDialog .wt-roll-score.is-large{font-size:85px}#dealDialog .wt-roll-reveal{padding-bottom:14px}}
+@media(max-width:1000px){#dealDialog .wt-order-layout{grid-template-columns:1fr}#dealDialog .wt-order-layout .sel-order-grid{grid-template-columns:repeat(auto-fit,minmax(95px,1fr))}#dealDialog .sel-turn-meta{font-size:10px}#dealDialog .sel-spotlight{gap:8px}}
+@media(max-width:700px){#dealDialog .sel-spotlight{padding:12px;margin:0 0 14px;display:block}#dealDialog .sel-actor-name{font-size:32px}#dealDialog .sel-turn-meta{margin-top:10px;display:flex;flex-wrap:wrap;text-align:left;gap:6px 12px}#dealDialog .sel-spotlight p{font-size:12px}#dealDialog .sel-choice-guide{grid-template-columns:1fr;gap:7px}#dealDialog .wt-dice-tray{min-height:230px}#dealDialog .wt-roll-score.is-large{font-size:95px}#dealDialog .wt-dice-actions span{font-size:11px}}
+@media(prefers-reduced-motion:reduce){#dealDialog .wt-throw-animation .sel-die{animation:none}}
+#dealDialog .wt-toss-die{position:relative;display:block;width:140px;height:140px;color:#dfbd73;filter:drop-shadow(0 12px 8px #0009);animation:wtToss .85s ease-out both}
+#dealDialog .wt-toss-die svg{width:100%;height:100%;stroke:currentColor;stroke-width:2}
+#dealDialog .wt-toss-die b{position:absolute;top:56px;left:0;right:0;text-align:center;font:700 26px Georgia,serif;color:#fff0c7}
+@media(prefers-reduced-motion:reduce){#dealDialog .wt-toss-die{animation:none}}
+#dealDialog.deal-selection-mode .deal-head{position:static}
+@media(min-width:701px) and (max-height:820px){#dealDialog .sel-active-cards .sel-card>img{height:120px}#dealDialog .sel-active-cards .sel-card>b{min-height:30px}#dealDialog .sel-controls .deal-actions{margin-top:12px}}

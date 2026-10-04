@@ -96,8 +96,8 @@ dialog.addEventListener('click',event=>{const b=event.target.closest('[data-acti
  if(name==='sel-skip'){clearTimeout(selectionTimer);selectionBusy=false;render();return}if(selectionBusy&&name!=='close')return;
  if(name.startsWith('sel-')){
   const kind=name.slice(4);if(kind==='sound'){window.GR_SELECTION_UI.act(game,kind,b,content);b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')!=='true');b.textContent=b.getAttribute('aria-pressed')==='true'?'Sound: On':'Sound: Off';return}window.GR_SELECTION_UI.act(game,kind,b,content);window.GR_SELECTION_UI.sound(kind);
-  if(['order','defend','tiebreak'].includes(kind)&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-   selectionBusy=true;const panel=content.querySelector('.sel-controls');panel.innerHTML='<div class="sel-dice-animation"><span class="sel-die">D100</span><strong>Rolling the dice…</strong><button type="button" data-action="sel-skip">Skip animation</button></div>';content.querySelectorAll('button:not([data-action="sel-skip"])').forEach(el=>el.disabled=true);
+  if(['order','roll'].includes(kind)&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+   selectionBusy=true;const panel=content.querySelector('.sel-controls');panel.innerHTML='<div class="sel-dice-animation wt-throw-animation"><span class="wt-toss-die">'+window.GR_TABLE_DICE.shape()+'<b>D100</b></span><strong>'+esc(game.players[game.selection.lastRoll.player].name)+' is rolling…</strong><button type="button" data-action="sel-skip">Skip animation</button></div>';content.querySelectorAll('button:not([data-action="sel-skip"])').forEach(el=>el.disabled=true);
    const activeGame=game;selectionTimer=setTimeout(()=>{selectionBusy=false;if(game===activeGame){render();dialog.scrollTop=0}},1100);
   }else{render();dialog.scrollTop=0}return;
  }
