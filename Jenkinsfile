@@ -61,8 +61,13 @@ gitleaks git --redact --exit-code 1 .
         }
         stage('Archive Verified Release') {
             steps {
-                archiveArtifacts artifacts: 'dist/release.json,dist/security/**,dist/charts/*.tgz', fingerprint: true
+                archiveArtifacts artifacts: 'dist/release.json,dist/charts/*.tgz', fingerprint: true
             }
+        }
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'dist/security/**,dist/build-*.json', fingerprint: true, allowEmptyArchive: true
         }
     }
 }
