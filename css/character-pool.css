@@ -32,3 +32,12 @@ body.gr-tool-view:has(#draft:not(.hidden)) .app{max-width:1660px}
  #unifiedLeft{grid-column:1;grid-row:3}
 }
 @media(pointer:coarse){#characterPoolPanel .pool-race{min-height:44px;min-width:44px}}
+/* Override legacy fixed grid rows when the compact pool moves above the cards. */
+@media(max-width:1250px){
+ #liveDraftContent>.cols>#unifiedLeft{grid-column:1!important;grid-row:1 / span 2!important}
+ #liveDraftContent>.cols>#draftCenter{grid-column:2!important;grid-row:2!important}
+}
+@media(max-width:760px){
+ #liveDraftContent>.cols>#unifiedLeft{grid-column:1!important;grid-row:3!important}
+ #liveDraftContent>.cols>#draftCenter{grid-column:1!important;grid-row:2!important}
+}

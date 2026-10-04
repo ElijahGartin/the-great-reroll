@@ -1,0 +1,20 @@
+{{- if not .Values.persistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "war-table.name" . }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "war-table.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.persistence.accessMode }}
+  volumeMode: Filesystem
+  {{- if ne .Values.persistence.storageClass nil }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

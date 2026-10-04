@@ -1,0 +1,53 @@
+contractVersion: "1.0"
+application:
+  id: war-table
+  name: War Table
+  owner: ThunderRockTech
+  tier: internal
+  description: Private persistent multiplayer character drafts and Deal Everyone games.
+artifacts:
+  chartName: war-table
+  images:
+    - name: app
+      dockerfile: Dockerfile
+      context: .
+  architectures:
+    - linux/amd64
+    - linux/arm64
+  sbomRequired: true
+  signaturesRequired: true
+  attestationsRequired: true
+runtime:
+  health:
+    liveness: /healthz
+    readiness: /readyz
+    metrics: /metrics
+  port: 3000
+  shutdownGraceSeconds: 30
+configuration:
+  environmentDriven: true
+  forbiddenRuntimeAssumptions:
+    - localhost
+    - host.docker.internal
+    - live-code volumes
+secrets:
+  secretDelivery: hybrid
+  referencesOnly: true
+  # Registry pull and ingress TLS Secrets are environment-owned chart references.
+  requiredSecrets: []
+dependencies:
+  model: explicit
+  services:
+    database:
+      ownership: app-owned
+      implementation: SQLite WAL on the chart's persistent volume
+      storage: environment-selected CSI StorageClass; no external database service
+      backup: online SQLite backup plus environment-owned volume backup and restore policy
+delivery:
+  releaseMode: single
+  localDev: single
+  publicEnvironments: single
+  promotion:
+    source: jenkins
+    stateRepo: platform-state
+exceptions: []

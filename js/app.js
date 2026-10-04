@@ -804,7 +804,7 @@ setTimeout(grRemoveDuplicateClassText,0);
 /* ===== gr-current-drafter-v7-js ===== */
 (()=>{
   function currentDraftIndex(){
-    if(!window.draft) return -1;
+    if(!draft) return -1;
     if(typeof twoStageMode==='function' && twoStageMode()){
       return stagePhase===1 ? stageOnePicks.length : stageTwoPicks.length;
     }
@@ -815,7 +815,7 @@ setTimeout(grRemoveDuplicateClassText,0);
     return i>=0 && draft && i<draft.names.length ? draft.names[i] : '';
   }
   function enhanceCurrentDrafterUI(){
-    if(!window.draft) return;
+    if(!draft) return;
     const i=currentDraftIndex();
     const name=currentDrafter();
     const finished=!name;
@@ -882,7 +882,7 @@ setTimeout(grRemoveDuplicateClassText,0);
 (()=>{
   const originalRenderUnifiedOrder = window.renderUnifiedOrder;
   window.renderUnifiedOrder = function(){
-    if(!window.draft) return;
+    if(!draft) return;
     let people = rollState?.people || lobbyRolls;
     let rows = people?.length ? people.map(p=>({name:p.name,history:p.history})) : draft.names.map(name=>({name,history:[]}));
     let finalized = !rollState && lobbyRolls.length > 0;
@@ -1819,4 +1819,3 @@ setTimeout(grRemoveDuplicateClassText,0);
   window.addEventListener('resize',()=>{if(rollState&&!rollState.animating)resetDiePosition()});
   ensureZone();renderInteractive();
 })();
-

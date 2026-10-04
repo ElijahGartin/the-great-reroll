@@ -1,0 +1,25 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- if or (empty .Values.networkPolicy.ingressNamespaceLabels) (empty .Values.networkPolicy.ingressPodLabels) }}
+{{- fail "NetworkPolicy requires explicit ingress namespace and pod labels" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "war-table.name" . }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "war-table.labels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressNamespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressPodLabels | nindent 14 }}
+      ports:
+        - {protocol: TCP, port: 3000}
+  egress: []
+{{- end }}

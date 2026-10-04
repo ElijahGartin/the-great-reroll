@@ -1,0 +1,334 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-f0-9]{64}$"
+        },
+        "pullPolicy": {
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      },
+      "required": [
+        "repository",
+        "tag",
+        "digest",
+        "pullPolicy"
+      ]
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "replicaCount": {
+      "type": "integer",
+      "const": 1
+    },
+    "publicOrigin": {
+      "type": "string",
+      "pattern": "^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?$"
+    },
+    "roomTtlDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3650
+    },
+    "maxRooms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingClaim": {
+          "type": "string"
+        },
+        "size": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+        },
+        "storageClass": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "accessMode": {
+          "enum": [
+            "ReadWriteOncePod",
+            "ReadWriteOnce"
+          ]
+        }
+      },
+      "required": [
+        "existingClaim",
+        "size",
+        "accessMode"
+      ]
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            },
+            "ephemeral-storage": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            },
+            "ephemeral-storage": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?([EPTGMK]i?|m)?$"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        }
+      },
+      "required": [
+        "requests",
+        "limits"
+      ]
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "tlsSecretName": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "enabled",
+        "className",
+        "host",
+        "tlsSecretName",
+        "annotations"
+      ]
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "ingressNamespaceLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "ingressPodLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "enabled",
+        "ingressNamespaceLabels",
+        "ingressPodLabels"
+      ]
+    },
+    "maxCommandsPerRoom": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "maxBodyBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1048576
+    },
+    "rateLimitPerMinute": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "app": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^$|^sha256:[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "scheduling": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nodeSelector": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "tolerations": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "affinity": {
+              "type": "object"
+            },
+            "priorityClassName": {
+              "type": "string"
+            }
+          }
+        },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
+        }
+      }
+    },
+    "podAnnotations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "application": {
+      "type": "string"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "chartVersion": {
+      "type": "string"
+    },
+    "autoSync": {
+      "type": "boolean"
+    },
+    "mode": {
+      "const": "single"
+    },
+    "updatedBy": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "image",
+    "imagePullSecrets",
+    "replicaCount",
+    "publicOrigin",
+    "roomTtlDays",
+    "maxRooms",
+    "persistence",
+    "resources",
+    "ingress",
+    "networkPolicy",
+    "maxCommandsPerRoom",
+    "maxBodyBytes",
+    "rateLimitPerMinute"
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
