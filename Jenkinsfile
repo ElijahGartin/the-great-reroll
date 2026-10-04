@@ -26,7 +26,11 @@ pipeline {
         }
         stage('Trusted Checkout') {
             steps {
-                checkout scm
+                script {
+                    def source = checkout scm
+                    env.GIT_BRANCH = source.GIT_BRANCH
+                    env.GIT_COMMIT = source.GIT_COMMIT
+                }
                 sh 'bash ci/trusted-main.sh'
             }
         }
