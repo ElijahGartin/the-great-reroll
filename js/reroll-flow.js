@@ -396,7 +396,8 @@ $('rrNext').onclick=()=>{
 };
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!flow.classList.contains('hidden'))close()});
-if($('grHomeLottery'))$('grHomeLottery').onclick=()=>{st.closeDestination=null;open()};
+window.GR_STANDARD_DRAFT={open:()=>{st.closeDestination=null;open()}};
+if($('grHomeLottery'))$('grHomeLottery').onclick=window.GR_STANDARD_DRAFT.open;
 
 /* Split live-draft actions:
    NEW DRAFT = destructive reset with the existing confirmation.

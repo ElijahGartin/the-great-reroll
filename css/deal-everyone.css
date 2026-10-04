@@ -137,3 +137,21 @@
  #dealDialog.deal-board-mode{position:fixed;inset:auto;left:50%;top:50%;margin:0;width:var(--board-width,1100px);height:var(--board-height,740px);max-width:none;max-height:none;transform:translate(-50%,-50%) scale(var(--board-scale,1));transform-origin:center}
  #dealDialog.deal-board-mode .deal-reveal-order{order:0}
 }
+/* Guided entry for the main Great Reroll experience. */
+#dealDialog [data-deal-setup][hidden]{display:none}
+#dealDialog .deal-setup-intro h3{font:700 28px Georgia,serif;margin:8px 0}
+#dealDialog .deal-setup-intro p{color:#c7bba8;margin:8px 0 20px}
+#dealDialog .deal-setup-steps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+#dealDialog .deal-setup-steps span{font-size:12px;padding:8px 14px;border:1px solid #544937;border-radius:20px;color:#b7ad9c}
+#dealDialog .deal-setup-steps .is-current{background:#513722;border-color:#d5ae64;color:#ffe1a6}
+#dealDialog .deal-setup-explainer{background:#28231d;border-left:3px solid #cca259;padding:16px 20px;margin:20px 0;color:#d6c7ae}
+#dealDialog .deal-setup-explainer b{color:#f3d483}#dealDialog .deal-setup-explainer p{margin:8px 0;font-size:13px}#dealDialog .deal-setup-explainer a{color:#f3d483}
+#dealDialog .deal-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#dealDialog .deal-review-grid>div{padding:18px;background:#1c2026;border:1px solid #625035;border-radius:5px}
+#dealDialog .deal-review-grid small{display:block;color:#baa98b;font-size:10px;letter-spacing:1px}#dealDialog .deal-review-grid b{display:block;font:700 22px Georgia,serif;color:#f6d691;margin-top:7px}
+#dealDialog .deal-review-names{padding:14px;background:#171a1f;overflow-wrap:anywhere;color:#d3c4ac}
+#dealDialog .deal-game-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;padding-left:22px;margin:24px 0}
+#dealDialog .deal-game-path b{display:block;color:#f1d19a}#dealDialog .deal-game-path span{display:block;color:#c2b69f;font-size:12px;margin-top:6px}
+#dealDialog .deal-setup-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid #544735}
+@media(max-width:650px){#dealDialog .deal-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dealDialog .deal-review-grid>div{padding:12px}#dealDialog .deal-review-grid b{font-size:18px}#dealDialog .deal-game-path{grid-template-columns:1fr;gap:12px}#dealDialog .deal-setup-steps{gap:5px}#dealDialog .deal-setup-steps span{font-size:10px;padding:7px 9px}}
+#dealDialog .deal-setup-actions{position:sticky;bottom:0;background:#111317;padding:12px 0;z-index:3;box-shadow:0 -10px 15px #111317}
