@@ -5,13 +5,14 @@ function check(ok,message){if(!ok)throw Error(message)}
 function integer(n,min,max){return Number.isInteger(n)&&n>=min&&n<=max}
 function shuffle(items,rng=Math.random){const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
 // Min-cost flow allocates classes across the entire table before cards are assigned.
-// Each class can occur at most once per hand. Role preferences are soft costs.
+// Balance class totals first; hand role preferences are secondary soft costs.
+// Convex class costs spread picks across enabled classes within their copy limits.
 function buildHands(pool,n,copies,balanced,rng){
  const classes=shuffle([...new Set(pool.map(c=>c.cls))],rng),graph=[];
  const node=()=>{graph.push([]);return graph.length-1},source=node(),sink=node();
  function edge(a,b,cap,cost=0){const f={to:b,cap,cost,rev:graph[b].length},r={to:a,cap:0,cost:-cost,rev:graph[a].length};graph[a].push(f);graph[b].push(r);return f}
  const slots=Array.from({length:n},()=>{const p=node(),dps=node(),flex=node();edge(p,sink,3);edge(dps,p,2);edge(dps,p,1,balanced?1:0);edge(flex,p,1);edge(flex,p,2,balanced?5:0);return{dps,flex}}),links=[];
- for(const cls of classes){const cards=pool.filter(c=>c.cls===cls),c=node();edge(source,c,Math.min(n,cards.length*copies));for(const i of shuffle(slots.map((_,i)=>i),rng)){const e=edge(c,slots[i][cards[0].flex?'flex':'dps'],1);links.push({cls,i,e})}}
+ for(const cls of classes){const cards=pool.filter(c=>c.cls===cls),c=node();const capacity=Math.min(n,cards.length*copies);if(balanced){for(let k=0;k<capacity;k++)edge(source,c,1,k*(n*20+1))}else edge(source,c,capacity);for(const i of shuffle(slots.map((_,i)=>i),rng)){const e=edge(c,slots[i][cards[0].flex?'flex':'dps'],1);links.push({cls,i,e})}}
  let flow=0;
  while(flow<n*3){
   const dist=graph.map(()=>Infinity),prev=graph.map(()=>null),queue=[source],queued=new Set(queue);dist[source]=0;
@@ -21,7 +22,7 @@ function buildHands(pool,n,copies,balanced,rng){
  }
  check(flow===n*3,'The selected pool cannot give every player three different classes. Enable more combinations across different classes, increase copies, or reduce players.');
  const hands=Array.from({length:n},()=>[]);
- for(const cls of classes){let deck=shuffle(pool.filter(c=>c.cls===cls).flatMap(c=>Array.from({length:copies},(_,i)=>({...c,id:c.key+'#'+i,protected:false}))),rng);for(const link of shuffle(links.filter(l=>l.cls===cls&&l.e.cap===0),rng)){const hand=hands[link.i];let idx=deck.findIndex(c=>!hand.some(v=>v.race===c.race));if(idx<0)idx=0;hand.push(deck.splice(idx,1)[0])}}
+ for(const cls of classes){const dealtKeys=new Set();let deck=shuffle(pool.filter(c=>c.cls===cls).flatMap(c=>Array.from({length:copies},(_,i)=>({...c,id:c.key+'#'+i,protected:false}))),rng);for(const link of shuffle(links.filter(l=>l.cls===cls&&l.e.cap===0),rng)){const hand=hands[link.i];const eligible=balanced&&deck.some(c=>!dealtKeys.has(c.key))?deck.filter(c=>!dealtKeys.has(c.key)):deck;const chosen=eligible.find(c=>!hand.some(v=>v.race===c.race))||eligible[0];const idx=deck.indexOf(chosen);dealtKeys.add(chosen.key);hand.push(deck.splice(idx,1)[0])}}
  return shuffle(hands.map(h=>shuffle(h,rng)),rng);
 }
 function canSwap(game,target,slot,offered){
