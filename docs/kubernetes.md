@@ -2,14 +2,16 @@
 
 The application serves the browser and multiplayer API from one Node.js 24 container. Rooms, guest-seat credentials, game state, and completed results live in `/data/rooms.sqlite`. The server commits accepted actions before acknowledging them. Browser clients poll the same origin; no WebSocket routing or sticky sessions are required. Saved games survive pod replacement when the PVC remains intact.
 
-This is a **single-writer deployment with brief downtime during upgrades**. The chart fixes one replica and `Recreate`. Do not add an HPA, scale it above one, or run a second release against the same claim. This release does not offer high availability or cross-region replication.
+This is a **single-writer deployment with brief downtime during upgrades**. The chart uses one replica and `Recreate`; `maintenanceMode: true` temporarily stops that writer for restore work. Do not add an HPA, scale it above one, or run a second release against the same claim. This release does not offer high availability or cross-region replication.
+
+Managed deployments follow **git → PR → validation → merge → Argo CD**. The application repository owns source, Dockerfile, and chart; Jenkins owns release builds, security gates, SBOMs, signatures, attestations, and immutable artifact publication. `platform-state` owns environment values, Secret references, release intent, and Argo CD Applications. See the [managed application contract](platform/managed-application-contract.md). Local build examples below do not publish or deploy a release.
 
 ## Requirements
 
 - Kubernetes 1.29+ and Helm 3 or 4. CI uses Helm 4.3.0.
 - A CSI storage class supporting `ReadWriteOncePod`, filesystem mounts, UID/GID 1000, and POSIX locking. Use block-backed persistent storage formatted with a local filesystem, such as ext4 or XFS; **do not use NFS/SMB or shared network filesystems** for SQLite WAL.
 - An ingress controller or equivalent HTTPS reverse proxy, a real hostname, and a TLS certificate/Secret. Provision these through your cluster's normal processes. The chart does not install an ingress controller or certificate manager.
-- A registry image accessible to cluster nodes. No image is published by this repository's CI.
+- Signed, immutable runtime images and OCI chart artifacts published by Jenkins and accessible to the cluster. GitHub PR checks validate changes; they do not publish releases. Missing signing or other release prerequisites block promotion.
 
 `ReadWriteOncePod` limits access to one pod and requires CSI support. `ReadWriteOnce` only restricts mounting to one node and can still admit multiple pods on that node. Set `persistence.accessMode=ReadWriteOnce` only after confirming the storage driver cannot use RWOP and arranging operational single-writer enforcement. See [Kubernetes persistent-volume access modes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes) and [SQLite WAL filesystem requirements](https://sqlite.org/wal.html).
 
@@ -25,26 +27,16 @@ helm lint deploy/helm/war-table --set publicOrigin=https://game.example.invalid
 docker build -t war-table:local .
 ```
 
-For an existing local kind test cluster, `kind load docker-image war-table:local` makes that image available to its nodes. Production needs a registry. Replace these placeholders with your own registry and immutable release tag; select platforms matching your nodes:
+For an explicitly isolated local kind test cluster, load the local image with `kind load docker-image war-table:local --name YOUR_LOCAL_TEST_CLUSTER`. Local image tags are for disposable tests only. Managed deployments use the Jenkins release pipeline, which publishes multi-architecture runtime images and a versioned OCI chart after the required gates pass. Do not bypass that pipeline with a manual registry push.
 
-```sh
-IMAGE_REPOSITORY='registry.example.invalid/your-team/war-table'
-IMAGE_TAG='replace-with-git-commit'
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t "$IMAGE_REPOSITORY:$IMAGE_TAG" --push .
-```
+## Configure and reconcile
 
-Prefer the registry's resulting `sha256:...` digest in `image.digest` for reproducible deployments. Image publishing and cluster changes are operator actions; the commands here are a runbook, not evidence of a deployed environment.
-
-## Configure and install
-
-Create a private `production-values.yaml` outside version control. Replace every placeholder:
+Store environment values in the private `platform-state` repository, not in this public application repository or an untracked operational file. Keep credential material in approved SOPS/ExternalSecret delivery and reference the resulting Secrets. Replace every placeholder in this environment-values example:
 
 ```yaml
-image:
-  repository: registry.example.invalid/your-team/war-table
-  tag: replace-with-git-commit
-  # digest: sha256:<64 hex characters>
+images:
+  app:
+    repository: registry.example.invalid/your-team/war-table
 publicOrigin: https://games.example.invalid
 roomTtlDays: 30
 maxRooms: 1000
@@ -59,18 +51,21 @@ ingress:
   tlsSecretName: your-existing-tls-secret
 ```
 
+Jenkins promotion records the published chart version and image digest in `platform-state` release intent. The chart consumes `images.app.digest`; environment values supply `images.app.repository`. Validate both files together. Enable reconciliation only after image/chart artifacts, registry credentials, TLS Secrets, storage, and other declared prerequisites exist. Do not invent placeholder deployment digests or enable auto-sync while prerequisites are missing.
+
 The chart deliberately rejects a missing or non-HTTPS `publicOrigin`, multiple replicas, invalid resource values, and an ingress missing TLS settings. Use only the origin (no path or trailing slash); it must match the browser's HTTPS origin and ingress host. Keep the backend Service private. If another proxy supplies TLS, leave chart ingress disabled and route that proxy to Service port 80. Configure the edge to redirect HTTP to HTTPS and apply per-client request rate limits appropriate for private groups. The application intentionally ignores forwarded IP headers: its `RATE_LIMIT_PER_MINUTE` limit is per direct socket peer, so an ingress can share that limit across many guests. Tune the aggregate backend limit for your proxy and enforce individual-client limits at the trusted ingress.
 
+These commands render locally; set the paths to the intended files in your private `platform-state` checkout:
+
 ```sh
-helm lint deploy/helm/war-table -f production-values.yaml
+ENVIRONMENT_VALUES='/path/to/platform-state/environment-values.yaml'
+RELEASE_INTENT='/path/to/platform-state/release-intent/war-table/test.json'
+helm lint deploy/helm/war-table -f "$ENVIRONMENT_VALUES" -f "$RELEASE_INTENT"
 helm template games deploy/helm/war-table -n war-table \
-  -f production-values.yaml > rendered-war-table.yaml
-# Review rendered output and target kube context before the operator applies it.
-helm upgrade --install games deploy/helm/war-table \
-  --namespace war-table --create-namespace \
-  -f production-values.yaml --wait --timeout 5m
-kubectl -n war-table rollout status deployment/games-war-table
+  -f "$ENVIRONMENT_VALUES" -f "$RELEASE_INTENT"
 ```
+
+Run the required `platform-state` validators, review the rendered resources and release artifacts, and merge the approved change through its PR gates. Argo CD reconciles the committed desired state. Verify its sync/health status, the rollout, and the smoke checks below using the actual release name, namespace, and explicitly selected kube context. Do not run imperative Helm install/upgrade commands against a managed environment. Rendered output can contain private infrastructure details; keep it out of public logs and commits.
 
 Additional chart limits map directly to server environment variables:
 
@@ -90,7 +85,9 @@ Optional `networkPolicy.enabled=true` denies all egress and permits port 3000 on
 
 The PVC has `helm.sh/resource-policy: keep`: uninstalling the chart retains the claim. This is not a backup; deleting the claim may still destroy its volume under the storage class's reclaim policy. To reuse a retained/restored claim, set `persistence.existingClaim` to its name. PVC access mode and storage class generally cannot be changed in place; migrate to a separately provisioned claim instead.
 
-Use the included backup command while the server is running. It uses [Node's SQLite online backup API](https://nodejs.org/api/sqlite.html#sqlitebackupsourcedb-path-options), then checks the copy with `PRAGMA integrity_check`. It preserves committed WAL data and refuses to overwrite an existing destination. Never copy only the active `.sqlite` file: committed data can still be in its WAL.
+The runtime image contains Node.js but no shell, tar, npm, rm, chmod, or sleep. Use explicit Node commands for maintenance; `kubectl cp` requires tar and does not work with this image.
+
+Run the transfer commands from an operator machine with Node.js 24.21.0 or a compatible newer version for the local SQLite integrity check. Use the included backup command while the server is running. It uses [Node's SQLite online backup API](https://nodejs.org/api/sqlite.html#sqlitebackupsourcedb-path-options), then checks the copy with `PRAGMA integrity_check`. It preserves committed WAL data and refuses to overwrite an existing destination. Never copy only the active `.sqlite` file: committed data can still be in its WAL.
 
 ```sh
 # Use a fresh filename; this example assumes release games in namespace war-table.
@@ -98,9 +95,30 @@ BACKUP_NAME="rooms-$(date -u +%Y%m%dT%H%M%SZ).sqlite"
 POD=$(kubectl -n war-table get pods -l app.kubernetes.io/instance=games \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl -n war-table exec "$POD" -- node scripts/backup.cjs "/data/$BACKUP_NAME"
-kubectl -n war-table cp "$POD:/data/$BACKUP_NAME" "./$BACKUP_NAME"
-# After verifying and securely copying it to off-cluster backup storage:
-kubectl -n war-table exec "$POD" -- rm "/data/$BACKUP_NAME"
+# Run in bash or zsh; pipefail preserves a failed remote download status.
+set -o pipefail
+kubectl -n war-table exec "$POD" -- node -e '
+  const {pipeline}=require("node:stream/promises");
+  pipeline(require("node:fs").createReadStream(process.argv[1]),process.stdout)
+    .catch(e=>{console.error(e.message);process.exitCode=1});
+' "/data/$BACKUP_NAME" | node -e '
+  const fs=require("node:fs"); const {pipeline}=require("node:stream/promises");
+  const {DatabaseSync}=require("node:sqlite"); const p=process.argv[1];
+  (async()=>{
+    const fd=fs.openSync(p,"wx",0o600);
+    try {
+      await pipeline(process.stdin,fs.createWriteStream(p,{fd}));
+      if(fs.statSync(p).size===0)throw Error("Empty backup");
+      const d=new DatabaseSync(p,{readOnly:true});
+      let r; try {r=d.prepare("PRAGMA integrity_check").all()} finally {d.close()}
+      if(r.length!==1||r[0].integrity_check!=="ok")throw Error("Invalid backup");
+    } catch(e) {fs.unlinkSync(p);throw e}
+  })().catch(e=>{console.error(e.message);process.exitCode=1});
+' "./$BACKUP_NAME"
+# Continue only after the pipeline succeeds and the backup is securely copied
+# to off-cluster storage. The receiver refuses to replace an existing file.
+kubectl -n war-table exec "$POD" -- node -e \
+  'require("node:fs").unlinkSync(process.argv[1])' "/data/$BACKUP_NAME"
 ```
 
 Keep backup files private and encrypt off-cluster copies. They contain room metadata, game state, and credential hashes. Schedule and monitor backups through your existing backup platform; alert on failure and test restores. Reserve enough PVC space for a temporary second database. Results CSV/JSON exports are useful records, but are **not** database backups and cannot restore guest seats or unfinished rooms.
@@ -114,24 +132,39 @@ node -e 'const {DatabaseSync}=require("node:sqlite"); const d=new DatabaseSync(p
 ```
 
 1. Provision a new filesystem PVC through your storage workflow with the required size and access mode. Do not reuse a directory containing old `rooms.sqlite-wal` or `rooms.sqlite-shm` files.
-2. Scale the application to zero and wait for its pod to terminate before switching storage. This intentionally pauses all games:
+2. Commit `maintenanceMode: true` in the application's environment values and wait for Argo CD to reconcile zero replicas and terminate its pod before switching storage. This intentionally pauses all games. On platform-managed clusters, commit and reconcile the temporary maintenance state through Git → PR → validation → merge → Argo CD. Do not patch or scale live resources outside that workflow.
 
    ```sh
-   kubectl -n war-table scale deployment/games-war-table --replicas=0
    kubectl -n war-table wait --for=delete pod \
      -l app.kubernetes.io/instance=games --timeout=120s
    ```
 
-3. Save the maintenance pod below as `restore-pod.yaml`, substituting your matching application image and **new PVC** name. Then copy and verify the snapshot:
+3. Save the maintenance pod below as `restore-pod.yaml`, substituting the immutable digest of the matching application image and **new PVC** name. Create it through the same approved deployment workflow. Then stream and verify the snapshot (do not allocate a TTY):
 
    ```sh
-   kubectl -n war-table apply -f restore-pod.yaml
    kubectl -n war-table wait --for=condition=Ready pod/war-table-restore --timeout=120s
-   kubectl -n war-table cp ./rooms-backup.sqlite war-table-restore:/data/rooms.sqlite
-   kubectl -n war-table exec war-table-restore -- chmod 600 /data/rooms.sqlite
-   kubectl -n war-table exec war-table-restore -- node -e 'const fs=require("node:fs"); const {DatabaseSync}=require("node:sqlite"); const p="/data/rooms.sqlite"; if(fs.statSync(p).uid!==1000)process.exit(1); const d=new DatabaseSync(p,{readOnly:true}); const r=d.prepare("PRAGMA integrity_check").all(); d.close(); if(r.length!==1||r[0].integrity_check!=="ok")process.exit(1); console.log("restore verified")'
-   kubectl -n war-table delete pod war-table-restore --wait=true
+   kubectl -n war-table exec -i war-table-restore -- node -e '
+     const fs=require("node:fs"); const {pipeline}=require("node:stream/promises");
+     const {DatabaseSync}=require("node:sqlite"); const p="/data/rooms.sqlite";
+     (async()=>{
+       for(const suffix of ["-wal","-shm"])
+         if(fs.existsSync(p+suffix))throw Error("Restore requires a clean directory");
+       const fd=fs.openSync(p,"wx",0o600);
+       try {
+         await pipeline(process.stdin,fs.createWriteStream(p,{fd}));
+         const stat=fs.statSync(p);
+         if(!stat.size||stat.uid!==1000||(stat.mode&0o777)!==0o600)
+           throw Error("Invalid restored file size, owner, or permissions");
+         const d=new DatabaseSync(p,{readOnly:true});
+         let r; try {r=d.prepare("PRAGMA integrity_check").all()} finally {d.close()}
+         if(r.length!==1||r[0].integrity_check!=="ok")throw Error("Invalid backup");
+         console.log("restore verified");
+       } catch(e) {fs.unlinkSync(p);throw e}
+     })().catch(e=>{console.error(e.message);process.exitCode=1});
+   ' < ./rooms-backup.sqlite
    ```
+
+   A failed transfer or integrity check removes the newly created file; an existing database is never overwritten. If the exec session is forcibly interrupted before cleanup completes, discard the new restore PVC and restart with another empty claim.
 
    ```yaml
    apiVersion: v1
@@ -149,8 +182,8 @@ node -e 'const {DatabaseSync}=require("node:sqlite"); const d=new DatabaseSync(p
        seccompProfile: {type: RuntimeDefault}
      containers:
        - name: restore
-         image: registry.example.invalid/your-team/war-table:matching-backup-version
-         command: ["sleep", "3600"]
+         image: registry.example.invalid/your-team/war-table@sha256:REPLACE_WITH_MATCHING_IMAGE_DIGEST
+         command: ["/usr/local/bin/node", "-e", "setInterval(()=>{},60000)"]
          securityContext:
            allowPrivilegeEscalation: false
            readOnlyRootFilesystem: true
@@ -166,8 +199,13 @@ node -e 'const {DatabaseSync}=require("node:sqlite"); const d=new DatabaseSync(p
            claimName: your-new-empty-pvc
    ```
 
-   Wait for the maintenance pod to terminate so RWOP can attach to the application.
-4. Set `persistence.existingClaim` to the new claim in your production values, then run the Helm upgrade command above. The Deployment returns to one replica.
+   Remove the maintenance pod through the approved deployment workflow, then wait for termination so RWOP can attach to the application:
+
+   ```sh
+   kubectl -n war-table wait --for=delete pod/war-table-restore --timeout=120s
+   ```
+
+4. After the maintenance pod is gone, commit `persistence.existingClaim` with the new claim name and `maintenanceMode: false` together in your environment values. For platform-managed clusters, commit, validate, merge, and let Argo CD reconcile the change. The Deployment returns to one replica.
 5. Verify `/readyz`, reopen a saved room with a retained guest recovery credential, and export its results. Confirm the room's state matches the backup timestamp. Record the measured restore duration and data-loss window. Retain the old claim until the restore has been accepted.
 
 The backup tests exercise WAL consistency and preservation of existing backups. A real CSI restore, certificate issuance, and cluster-specific routing still require a staging drill in your environment.
@@ -188,8 +226,8 @@ On Linux use a private path such as `/tmp/war-table-qa-seats.json` instead. The 
 
 Back up before each upgrade and record the image digest, chart version, values, and database schema version. `Recreate` stops the old pod before starting the new one; clients reconnect by polling. Allow up to 30 seconds for graceful shutdown. Storage detach/attach can extend downtime.
 
-Roll back with `helm rollback games <revision> -n war-table --wait` **only if the earlier application supports the current database schema**. Otherwise restore the pre-upgrade backup into a new PVC and deploy the matching old image. Never assume an application rollback reverses a schema migration. Future schema changes must document backward compatibility and restore requirements.
+Roll back through a `platform-state` PR that restores the previously verified chart version, immutable image digest, and compatible values, then let Argo CD reconcile after validation and merge. Do this **only if the earlier application supports the current database schema**. Otherwise restore the pre-upgrade backup into a new PVC and commit the matching old release plus the restored claim reference. Do not use imperative Helm rollback against a managed environment. Never assume an application rollback reverses a schema migration. Future schema changes must document backward compatibility and restore requirements.
 
-`/healthz` checks process health; `/readyz` checks readiness to serve rooms. Monitor pod restarts/OOM kills, readiness, response failures/latency, PVC free space, backup age, and room-capacity limits. Logs go to stdout/stderr. Avoid logging guest recovery credentials, authorization headers, or private invite URLs at the proxy. Expired rooms follow `ROOM_TTL_DAYS`; communicate the retention window to players and keep exports before it expires.
+`/healthz` checks process health; `/readyz` checks readiness to serve rooms. `/metrics` exposes fixed operational gauges without room or guest labels; configure scraping and any required NetworkPolicy access through environment-owned GitOps configuration. Monitor pod restarts/OOM kills, readiness, response failures/latency, PVC free space, backup age, and room-capacity limits. Logs go to stdout/stderr. Avoid logging guest recovery credentials, authorization headers, or private invite URLs at the proxy. Expired rooms follow `ROOM_TTL_DAYS`; communicate the retention window to players and keep exports before it expires.
 
 Before opening access, test both modes from separate devices over the final HTTPS hostname, guest reconnect after refresh/server restart, saved-room resume, CSV/JSON export, the backup/restore drill, and upgrade downtime. Kubernetes readiness alone does not prove gameplay or backup recovery.
