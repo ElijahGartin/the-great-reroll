@@ -34,3 +34,21 @@
 #dealDialog .deal-reveal-stage .deal-hand{margin:20px 0}
 @media(max-width:700px){#dealDialog .deal-reveal-layout{grid-template-columns:1fr;gap:14px}#dealDialog .deal-reveal-order{order:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}#dealDialog .deal-reveal-order h3{grid-column:1/-1}#dealDialog .deal-reels{gap:6px}#dealDialog .deal-reel{height:220px}#dealDialog .deal-card-back b{font-size:11px}#dealDialog .deal-card-back span{font-size:36px}#dealDialog .deal-reel-caption{font-size:12px}#dealDialog .deal-reveal-stage>h3{font-size:22px}}
 @media(prefers-reduced-motion:reduce){#dealDialog .deal-reel-track{will-change:auto}}
+
+/* Keep ownership readable at a glance, including tables of 10+ players. */
+#dealDialog .deal-summary{margin:22px 0;border:1px solid #665239;border-radius:6px;overflow:hidden;background:#17191e}
+#dealDialog .deal-summary table{width:100%;border-collapse:collapse;table-layout:fixed}
+#dealDialog .deal-summary caption{text-align:left;padding:14px 16px;background:#24211e;color:#f3d483;font:700 20px Georgia,serif}
+#dealDialog .deal-summary th,#dealDialog .deal-summary td{text-align:left;padding:10px 16px;border-bottom:1px solid #34312d;vertical-align:middle}
+#dealDialog .deal-summary thead{background:#1e2026;color:#c3b8a6;font-size:12px}
+#dealDialog .deal-summary th:first-child{width:22%}
+#dealDialog .deal-summary tbody th{color:#fff0d7;font-size:16px;overflow-wrap:anywhere}
+#dealDialog .deal-summary tbody tr:last-child>*{border-bottom:0}
+#dealDialog .deal-summary tbody tr:nth-child(even){background:#1d1f25}
+#dealDialog .deal-summary-heroes{display:flex;gap:12px;flex-wrap:wrap}
+#dealDialog .deal-summary-hero{display:flex;align-items:center;gap:9px;flex:1 1 175px;min-width:0;border-left:3px solid var(--deal-class);padding:4px 8px;background:#101216;border-radius:3px}
+#dealDialog .deal-summary-hero img{width:36px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0}
+#dealDialog .deal-summary-hero b{color:var(--deal-class);font-size:14px;overflow-wrap:anywhere}
+#dealDialog .deal-summary-hero small{display:block;color:#ebd59d;font-size:11px}
+#dealDialog .deal-summary-hero.is-locked{box-shadow:inset 0 0 0 1px #947448}
+@media(max-width:600px){#dealDialog .deal-summary th,#dealDialog .deal-summary td{padding:9px 8px}#dealDialog .deal-summary th:first-child{width:29%}#dealDialog .deal-summary tbody th{font-size:14px}#dealDialog .deal-summary-heroes{gap:6px}#dealDialog .deal-summary-hero{flex-basis:100%;padding:3px 5px;gap:7px}#dealDialog .deal-summary-hero b{font-size:12px}#dealDialog .deal-summary-hero img{width:28px;height:32px}}
