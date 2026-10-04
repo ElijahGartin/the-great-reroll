@@ -16,6 +16,7 @@ assert.match(normal, /replicas: 1/);
 assert.match(normal, /type: Recreate/);
 assert.match(normal, /ReadWriteOncePod/);
 assert.match(normal, /helm.sh\/resource-policy: keep/);
+assert.match(normal, /argocd.argoproj.io\/sync-options: Prune=false,Delete=false/);
 assert.match(normal, /readOnlyRootFilesystem: true/);
 assert.match(normal, /runAsUser: 1000/);
 assert.match(normal, /automountServiceAccountToken: false/);

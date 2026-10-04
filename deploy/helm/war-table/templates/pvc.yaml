@@ -5,6 +5,7 @@ metadata:
   name: {{ include "war-table.name" . }}
   annotations:
     helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
   labels:
     {{- include "war-table.labels" . | nindent 4 }}
 spec:

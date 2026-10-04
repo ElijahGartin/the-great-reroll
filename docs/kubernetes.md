@@ -83,7 +83,7 @@ Optional `networkPolicy.enabled=true` denies all egress and permits port 3000 on
 
 ## Persistence and backups
 
-The PVC has `helm.sh/resource-policy: keep`: uninstalling the chart retains the claim. This is not a backup; deleting the claim may still destroy its volume under the storage class's reclaim policy. To reuse a retained/restored claim, set `persistence.existingClaim` to its name. PVC access mode and storage class generally cannot be changed in place; migrate to a separately provisioned claim instead.
+The PVC has `helm.sh/resource-policy: keep` and `argocd.argoproj.io/sync-options: Prune=false,Delete=false`: Helm uninstall, Argo pruning, and Argo Application deletion retain the claim. If a retained claim leaves the desired manifests, Argo reports it as OutOfSync until its ownership is reconciled. Preserve the containing namespace as well; these annotations do not protect against namespace deletion or a direct Kubernetes deletion. See [Argo resource retention](https://argo-cd.readthedocs.io/en/release-3.3/user-guide/sync-options/#no-prune-resources). This is not a backup; deleting the claim may still destroy its volume under the storage class's reclaim policy. To reuse a retained/restored claim, set `persistence.existingClaim` to its name. PVC access mode and storage class generally cannot be changed in place; migrate to a separately provisioned claim instead.
 
 The runtime image contains Node.js but no shell, tar, npm, rm, chmod, or sleep. Use explicit Node commands for maintenance; `kubectl cp` requires tar and does not work with this image.
 
