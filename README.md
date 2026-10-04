@@ -1,74 +1,72 @@
-# The Great Reroll — Phase 2 project build
+# The War Table · The Great Reroll
 
-This build continues the maintainability migration of The Great Reroll.
+A World of Warcraft character-drafting toolkit with local play and private, persistent multiplayer rooms.
 
-## What changed in Phase 2
-- All remaining inline JavaScript was moved out of `index.html`.
-- Application behavior now lives in `js/app.js`.
-- Analytics setup now lives in `js/analytics.js`.
-- Faction/race/class/spec, lore, icon paths, class colors, and hero-art paths now live in `data/characters.js`.
-- Name Forge vocabulary and naming templates now live in `data/names.js`.
-- The existing external artwork/CSS structure from Phase 1 is preserved.
-- Data files use JavaScript objects instead of fetched JSON so the project can still be opened directly from disk for local testing.
+- **Turn-based draft:** Character Lottery (race/class or specialization) and Guild Roster (race/role, then class/spec), eligible character pools, D100 initiative, optional timers, and one extra spin per player.
+- **Deal Everyone:** three unique cards per player, defense allocation, contested steals, and final selections.
+- **Private multiplayer:** invite links/codes, guest names, individual player controls, saved unfinished games, and CSV/JSON exports. No registration or public room directory.
+- **Local tools:** the existing shared-screen games and Name Forge remain available from `index.html`.
 
-## Structure
-```
-index.html
-css/
-  styles.css
-js/
-  analytics.js
-  app.js
-data/
-  characters.js
-  names.js
-assets/
-  backgrounds/
-  hero-cards/
-    horde/
-    alliance/
-    legacy/
-  icons/
-    classes/
-    races/
+## Run locally
+
+Use Node.js **24.21.0** (the pinned container/CI runtime). No npm packages need to be installed.
+
+```sh
+npm start
+# Open http://localhost:3000/online.html for multiplayer.
+# Open http://localhost:3000/ for the existing tools.
 ```
 
-## Why this is better
-- `index.html` is now primarily page structure instead of code/data storage.
-- Hero art can be replaced without touching HTML or JavaScript.
-- Race/class availability and asset paths have one central source of truth.
-- Name Forge pools can be expanded without editing the UI logic.
-- Future animated backgrounds, effects, or 3D assets can be added under `assets/` without bloating the page source.
+The server creates `.data/rooms.sqlite` on first start. `DATA_DIR` and `PORT` override the directory and default port 3000. Keep that directory between runs to preserve rooms. `index.html` still works directly from disk for local tools; multiplayer requires the server. Use separate browser profiles or private windows to test multiple players, since tabs in the same browser share a guest seat for a room.
 
-## Recommended next step
-Test this Phase 2 build locally and on GitHub Pages. Once confirmed stable, we can split `js/app.js` into focused modules such as `draft.js`, `name-forge.js`, and `ui.js`, and then begin the animated homepage work.
+For access from other devices, use an HTTPS reverse proxy and set `PUBLIC_ORIGIN` to the exact public origin. Production refuses to start without an HTTPS `PUBLIC_ORIGIN`. See the [Kubernetes runbook](docs/kubernetes.md) for container, persistent storage, TLS, and Helm configuration.
 
-## Analytics activation
+## Play and return later
 
-Analytics is configured in `js/analytics.js`. The only remaining code activation
-step is replacing `PASTE_UMAMI_WEBSITE_ID_HERE` in `config.websiteId` with the real
-Umami Cloud Website ID for `wowwartable.com`. No valid ID was available when this
-configuration was updated, so the placeholder intentionally disables tracking.
+1. Open **Private multiplayer**, choose a mode and rules, and create a room with your guest name.
+2. Share its invite link/code. Guests join with distinct names; every player marks themselves ready before the host starts.
+3. Save your **private recovery file** when joining. Your browser remembers your seat using an HttpOnly cookie. On a new device, enter the room code and your recovery code in **Return to your saved game**. Recovery codes control a seat: keep them private and separate from the shared invite.
+4. Each accepted action is saved automatically. The host can **Pause & save** and resume on another day. Pick timers default to off; enabled timers continue while players are away unless the host pauses the game.
+5. Export CSV or JSON at any time. Unfinished exports are marked as progress; finished exports contain the final roster. Exports are records, not restorable room backups.
 
-Copy the `data-website-id` value from that website's Umami tracking code and paste
-only the ID between the existing quotes:
+Rooms expire after **30 days without an accepted change**, configurable with `ROOM_TTL_DAYS`. Viewing or downloading a room does not extend its lifetime. The UI shows its expiry. Browser recovery cookies are refreshed when you make an accepted change or explicitly resume with your private code; retain the recovery file even when using the same browser.
 
-```js
-websiteId:'PASTE_UMAMI_WEBSITE_ID_HERE',
+The host can remove guests **before play starts** and transfer hosting to another guest. A disconnect does not erase the room or automatically transfer hosting. The original host can return using their browser or saved recovery code. A guest who loses both their browser credential and recovery file cannot reclaim a seat by name. During an active game, seats cannot be removed/reassigned; recover the existing seat or export progress and start a new room. There is no account/password-reset service or automatic host takeover.
+
+Deal Everyone preserves visible hands and defense allocations. Players submit and lock their own defense; steals begin once all have submitted. Joining is limited to the lobby. Rooms allow up to 40 seats, but the selected pool/rules determine whether a game can start: Deal Everyone requires three distinct eligible combinations per player. The current faction pools therefore support at most nine players in that mode. Adjust the pool and draft choices to your group before creating the room.
+
+## Implementation and verification
+
+The backend uses Node's HTTP server, cryptographic randomness, and SQLite. It validates actor permissions, serializes accepted actions with room revisions, and records idempotency keys before acknowledging commands. Browsers poll the shared state and never decide rolls or other players' actions. SQLite commits use WAL with `synchronous=FULL`.
+
+The deployment runs **one replica** with a persistent volume; upgrades have a brief outage. It is not a high-availability design. Node's built-in SQLite API is currently release candidate; the runtime is pinned and persistence/backup behavior is exercised by tests. See [Node SQLite documentation](https://nodejs.org/download/release/latest-v24.x/docs/api/sqlite.html).
+
+```sh
+npm run check       # JavaScript syntax, including browser data modules
+npm test            # game rules, HTTP authorization/persistence, UI retries, backups
+npm run check:chart # requires Helm; render and reject unsafe/invalid configurations
 ```
 
-Use the Website ID, not an API key, account ID, or entire script tag. Commit the
-replacement and let GitHub Pages deploy it. The Umami Cloud script URL and custom
-domain are already configured; `index.html` already loads the analytics module.
+| Area | Files |
+| --- | --- |
+| Browser multiplayer | `online.html`, `js/online.js`, `css/online.css` |
+| API, guest seats, persistence | `server/server.cjs`, `server/store.cjs` |
+| Authoritative rules | `server/game.cjs`, `js/deal-engine.js` |
+| Shared character data | `data/characters.js` |
+| Container and Kubernetes | `Dockerfile`, `deploy/helm/war-table/` |
+| Backup and operations | `scripts/backup.cjs`, [Kubernetes runbook](docs/kubernetes.md) |
+| Local Deal Everyone rules | [Game guide](docs/deal-everyone.md) |
 
-The loader and `grTrack` are enabled only on `https://wowwartable.com` with no
-nonstandard port. They remain disabled on local `file:` pages, localhost,
-loopback/LAN addresses, preview hosts, `johnnywow.github.io`, and subdomains
-(including `www.wowwartable.com`). Umami's `data-domains` is also set to
-`wowwartable.com`. Query-string exclusion and existing event behavior are preserved.
+The multiplayer server replaces the former online-lobby preview. The legacy UI still contains an inline presentation script; it is not a fully modular application. Online hard roster enforcement also checks that remaining players can receive distinct eligible characters, preventing impossible assignments that the earlier browser-only checks could miss.
 
-After deploying a real ID, visit `https://wowwartable.com` and check the browser
-Network panel for `https://cloud.umami.is/script.js` and a successful Umami
-collection request; confirm the visit appears in the site's Umami dashboard.
-Opening the site locally must produce no Umami script or collection requests.
-With the placeholder, no Umami script should load even on the public domain.
+## Analytics
+
+Legacy-page analytics in `js/analytics.js` remains disabled while its website ID is `PASTE_UMAMI_WEBSITE_ID_HERE`. It only activates on `https://wowwartable.com` after a valid Umami website ID is supplied. This release does not configure that account or domain. The online multiplayer page does not load analytics; never send invite codes, recovery credentials, or room state to analytics.
+
+The container's Content Security Policy currently blocks the external Umami script on the legacy page. Enabling it on this deployment requires an intentional policy update for the chosen provider in addition to the website ID. GitHub Pages can still serve the local tools, but it does not run this multiplayer backend.
+
+## Release ownership
+
+Jenkins produces signed multi-architecture images, an OCI Helm chart, SBOMs, and a verified release record. Environment changes enter `platform-state` through a reviewed pull request and are reconciled by Argo CD. See [Platform delivery](docs/platform-delivery.md).
+
+This repository contains a deployment package, not credentials or configuration for a particular cluster. Supply your registry image, HTTPS hostname/TLS Secret, and compatible storage class through your deployment process. See the [verification record](docs/verification.md) for completed checks and environment-specific checks still required.

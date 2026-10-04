@@ -1,0 +1,12 @@
+*
+!package.json
+!index.html
+!online.html
+!asset-manifest.json
+!project-manifest.json
+!assets/**
+!css/**
+!data/**
+!js/**
+!server/**
+!scripts/backup.cjs

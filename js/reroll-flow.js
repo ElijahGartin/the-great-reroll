@@ -254,13 +254,7 @@ function render(){
   syncDraftSettingsButton();
 }
 
-function code(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let o='';for(let i=0;i<5;i++)o+=c[Math.floor(Math.random()*c.length)];return o}
-function createLobby(){
-  st.code=code();
-  let host=($('rrHostName').value||'Host').trim(),url=location.href.split('#')[0].split('?')[0]+'?lobby='+st.code;
-  $('rrLobbyCode').textContent=st.code;$('rrInviteLink').textContent=url;$('rrLobbyHostDisplay').textContent=host;$('rrLobbyCreated').classList.remove('hidden');
-  try{localStorage.setItem('war-table-online-lobby-preview-v1',JSON.stringify({code:st.code,name:$('rrLobbyName').value,host,limit:+$('rrLobbyLimit').value,settings:settings(),eligibility:st.eligibility,createdAt:new Date().toISOString()}))}catch(e){}
-}
+function createLobby(){ location.assign('online.html'); }
 
 function applyEligibilityToLegacy(f){
   const map=ensureEligibility(f);
@@ -344,7 +338,7 @@ function schedule(){
 }
 
 flow.querySelectorAll('[data-rr-close]').forEach(e=>e.onclick=close);
-flow.querySelectorAll('[data-rr-session]').forEach(e=>e.onclick=()=>{st.session=e.dataset.rrSession;flow.querySelectorAll('[data-rr-session]').forEach(x=>x.classList.toggle('selected',x===e));render()});
+flow.querySelectorAll('[data-rr-session]').forEach(e=>e.onclick=()=>{if(e.dataset.rrSession==='online'){location.assign('online.html');return}st.session=e.dataset.rrSession;flow.querySelectorAll('[data-rr-session]').forEach(x=>x.classList.toggle('selected',x===e));render()});
 flow.querySelectorAll('[data-rr-launch]').forEach(e=>e.onclick=()=>{st.launch=e.dataset.rrLaunch;flow.querySelectorAll('[data-rr-launch]').forEach(x=>x.classList.toggle('selected',x===e));$('rrScheduledDone').classList.add('hidden');render()});
 ['rrFaction','rrDetail','rrChoices','rrDuplicates','rrOrder','rrTimer','rrLobbyLimit'].forEach(id=>$(id)?.addEventListener('change',()=>{
   if(id==='rrFaction'){

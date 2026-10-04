@@ -1,0 +1,14 @@
+{
+  "name": "the-war-table",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private, persistent multiplayer character drafts and Deal Everyone games",
+  "engines": { "node": ">=24.15.0 <27" },
+  "scripts": {
+    "start": "node server/server.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/check-syntax.cjs",
+    "check:chart": "node scripts/check-chart.cjs",
+    "backup": "node scripts/backup.cjs"
+  }
+}

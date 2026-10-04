@@ -1,0 +1,4 @@
+title = "managed application secret scanning"
+
+[extend]
+useDefault = true

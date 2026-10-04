@@ -1,0 +1,54 @@
+# Supply your immutable application image and HTTPS origin at install time.
+image:
+  repository: war-table
+  tag: "1.0.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+replicaCount: 1
+publicOrigin: ""
+roomTtlDays: 30
+maxRooms: 1000
+maxCommandsPerRoom: 20000
+maxBodyBytes: 16384
+rateLimitPerMinute: 3600
+persistence:
+  existingClaim: ""
+  size: 5Gi
+  storageClass: null
+  accessMode: ReadWriteOncePod
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+    ephemeral-storage: 64Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+    ephemeral-storage: 256Mi
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecretName: ""
+  annotations: {}
+networkPolicy:
+  enabled: false
+  # Both selectors apply to the same peer. Set actual controller labels.
+  ingressNamespaceLabels: {}
+  ingressPodLabels: {}
+
+# GitOps release intent supplies images.app.digest; environment values own repository.
+# Empty overrides retain image.* for local packaging and smoke tests.
+images:
+  app:
+    repository: ""
+    digest: ""
+scheduling:
+  default: {}
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /metrics
+  prometheus.io/port: "3000"
+# dependencies: app-owned SQLite uses persistence above; no external services.
+# secrets: registry pull and ingress TLS references are environment-owned above.

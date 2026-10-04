@@ -1,7 +1,7 @@
 /* Pure rules for Deal Everyone. No dependencies on the turn-based draft. */
 (function(root){
 'use strict';
-function check(ok,message){if(!ok)throw Error(message)}
+function check(ok,message){if(!ok)throw Object.assign(Error(message),{statusCode:400})}
 function integer(n,min,max){return Number.isInteger(n)&&n>=min&&n<=max}
 function shuffle(items,rng=Math.random){const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
 function create(names,pool,budget,attempts,rng=Math.random){

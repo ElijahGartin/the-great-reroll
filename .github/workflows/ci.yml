@@ -1,0 +1,62 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+      - run: npm run check
+      - run: npm test
+      - run: python3 -m unittest discover -s tests/ci -v
+      - run: python3 scripts/validate_managed_app_contract.py --repo-root . --app-config .platform/application.yaml --chart-path deploy/helm/war-table
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+        with:
+          version: v4.3.0
+      - run: helm lint deploy/helm/war-table --set publicOrigin=https://game.example.invalid
+      - run: node scripts/check-chart.cjs
+      - run: docker build --tag war-table:ci .
+      - name: Smoke test hardened container
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker logs war-table-smoke; docker rm -f war-table-smoke >/dev/null; docker volume rm war-table-smoke-data >/dev/null; rm -f "$RUNNER_TEMP/war-table-smoke-seats.json"' EXIT
+          docker volume create war-table-smoke-data >/dev/null
+          docker run --detach --name war-table-smoke \
+            --publish 127.0.0.1:3000:3000 --read-only \
+            --mount type=volume,src=war-table-smoke-data,dst=/data \
+            --tmpfs /tmp:uid=1000,gid=1000,mode=0700 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --env PUBLIC_ORIGIN=https://game.example.invalid war-table:ci
+          node <<'JS'
+          const assert = require('node:assert/strict');
+          const { setTimeout: wait } = require('node:timers/promises');
+          (async () => {
+            let ready = false;
+            for (let n = 0; n < 30; n++) {
+              try { ready = (await fetch('http://127.0.0.1:3000/readyz')).ok; } catch {}
+              if (ready) break;
+              await wait(500);
+            }
+            assert.ok(ready, 'container did not become ready');
+            for (const route of ['/healthz', '/', '/online.html', '/js/online.js']) {
+              assert.equal((await fetch(`http://127.0.0.1:3000${route}`)).status, 200, route);
+            }
+          })().catch((error) => { console.error(error); process.exitCode = 1; });
+          JS
+          node scripts/smoke-deployment.cjs seed http://127.0.0.1:3000 "$RUNNER_TEMP/war-table-smoke-seats.json"
+          docker restart war-table-smoke >/dev/null
+          node scripts/smoke-deployment.cjs verify http://127.0.0.1:3000 "$RUNNER_TEMP/war-table-smoke-seats.json"
+          node scripts/smoke-deployment.cjs finish http://127.0.0.1:3000 "$RUNNER_TEMP/war-table-smoke-seats.json"
