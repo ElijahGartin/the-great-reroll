@@ -17,3 +17,89 @@
 @media(max-width:600px){#dealDialog .sel-controls{padding:10px}#dealDialog .sel-active-cards .sel-card>img{height:110px}#dealDialog .sel-card>b{font-size:11px}#dealDialog .sel-reroll-check{font-size:10px}}
 /* Reset the homepage header sizing inside compact roster tiles. */
 #dealDialog .sel-team header{height:auto;min-height:0;padding:0;position:static;line-height:1.4}
+/* Hosted game: a stable guild rail and one decision in the spotlight. */
+#dealDialog.deal-selection-mode{height:96dvh;max-height:96dvh;overflow:hidden;display:flex;flex-direction:column}
+#dealDialog.deal-selection-mode:not([open]){display:none}
+#dealDialog.deal-selection-mode .deal-head{flex:none;padding:10px 18px}
+#dealDialog.deal-selection-mode #dealContent{flex:1;min-height:0;padding:14px 18px;overflow:hidden}
+#dealDialog .sel-shell{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:12px}
+#dealDialog .sel-topline{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#dealDialog .sel-progress{display:flex;gap:8px;flex-wrap:wrap;color:#938d82;font-size:12px}
+#dealDialog .sel-progress span{padding:7px 12px;border:1px solid #454039;border-radius:20px}
+#dealDialog .sel-progress .is-current{color:#ffdea2;border-color:#c79b51;background:#463321}
+#dealDialog .sel-progress .is-complete{color:#b7c5a2}
+#dealDialog .sel-board{display:grid;grid-template-columns:310px minmax(0,1fr);gap:18px;min-height:0}
+#dealDialog .sel-roster-panel{min-height:0;display:flex;flex-direction:column;background:#181b20;border:1px solid #584a38;border-radius:8px;padding:10px}
+#dealDialog .sel-roster-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+#dealDialog .sel-roster-title h3{font-size:15px;margin:0}
+#dealDialog .sel-roster-title>span{font-size:11px;color:#c3b8a6}
+#dealDialog .sel-rosters{display:grid;grid-template-columns:1fr;grid-auto-rows:minmax(43px,1fr);gap:4px;min-height:0;overflow:auto;flex:1;margin:0}
+#dealDialog .sel-team{padding:4px 7px;min-height:43px;overflow:hidden;border-color:#34363a;border-radius:4px}
+#dealDialog .sel-team header{margin:0 0 2px;gap:4px;line-height:1.2}
+#dealDialog .sel-team h3{font:600 11px 'Segoe UI',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dealDialog .sel-team header span{font-size:9px;white-space:nowrap}
+#dealDialog .sel-team.is-active{background:#32291e;border-color:#c8a65f;box-shadow:inset 3px 0 #c8a65f}
+#dealDialog .sel-team.is-locked{background:#1e2924;box-shadow:none;border-color:#4e6654}
+#dealDialog .sel-mini-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+#dealDialog .sel-mini-cards>span{display:flex;align-items:center;gap:4px;min-width:0;color:var(--deal-class);font-size:9px;line-height:1.1}
+#dealDialog .sel-mini-cards img{height:21px;width:21px;border-radius:3px;margin:0;border:1px solid var(--deal-class)}
+#dealDialog .sel-mini-cards b{display:block;font-size:9px}
+#dealDialog .sel-team.is-locked .sel-mini-cards{grid-template-columns:1fr}
+#dealDialog .sel-stage{min-height:0;min-width:0;overflow:auto;padding-right:4px}
+#dealDialog .sel-controls{min-height:390px;margin:0;padding:22px;background:radial-gradient(ellipse at 50% 0,#403022 0,transparent 75%),linear-gradient(135deg,#211f20,#141920);position:relative;overflow:hidden}
+#dealDialog .sel-controls:after{content:'';display:block;clear:both}
+#dealDialog .sel-controls h3{font:700 clamp(20px,2vw,29px) Georgia,serif;margin:8px 0 12px}
+#dealDialog .sel-controls>p{max-width:720px}
+#dealDialog .sel-active-cards{max-width:none;gap:14px;margin:20px 0 12px}
+#dealDialog .sel-active-cards .sel-card>img{height:clamp(140px,24vh,250px)}
+#dealDialog .sel-active-cards .sel-card{box-shadow:0 8px 22px #0005;transition:transform .15s,box-shadow .15s}
+#dealDialog .sel-active-cards .sel-card:has(button:hover){transform:translateY(-3px);box-shadow:0 9px 24px #0009}
+#dealDialog .sel-active-cards .sel-card:has(input:checked){outline:2px dashed #f1cc81;outline-offset:3px}
+#dealDialog .sel-active-cards .sel-card>b{font-size:14px;min-height:36px}
+#dealDialog .sel-reroll-check{display:flex;align-items:center;min-height:25px}
+#dealDialog .sel-claimed-card{width:160px;float:right;margin:0 0 16px 20px}
+#dealDialog .sel-claimed-card .sel-card>img{height:190px}
+#dealDialog .sel-claimed-card .sel-card{box-shadow:0 0 24px #c3913a26}
+#dealDialog .sel-claimed-card .sel-card>b{font-size:14px;text-align:center}
+#dealDialog .sel-result-layout{display:flex;gap:24px;align-items:flex-start}
+#dealDialog .sel-result-layout .sel-claimed-card{float:none;flex:0 0 180px;margin:0}
+#dealDialog .sel-result-layout .sel-claimed-card img{height:250px}
+#dealDialog .sel-results{min-width:0;flex:1}
+#dealDialog .sel-roll-results{gap:8px}
+#dealDialog .sel-roll-results>div{font-size:12px;flex:1 1 120px}
+#dealDialog .sel-roll-results .is-winner{border-color:#afcb81;background:#233023}
+#dealDialog .sel-total{animation:selTotalIn .4s .25s both}
+#dealDialog .sel-total strong{font-size:22px;color:#ffe2a2}
+#dealDialog .sel-order-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:18px}
+#dealDialog .sel-order-grid>div{display:grid;gap:8px;text-align:center;padding:10px;border:1px solid #665239;border-radius:6px;background:#16191e;align-content:center}
+#dealDialog .sel-order-grid b{font-size:13px;overflow-wrap:anywhere}
+#dealDialog .sel-order-score{color:#efcc8e;font:700 25px Georgia,serif}
+#dealDialog .sel-order-grid small{height:40px;display:grid;place-items:center;color:#b6cba5}
+#dealDialog .sel-response-status{gap:4px}
+#dealDialog .sel-response-status>span{padding:4px 6px;font-size:11px}
+#dealDialog .sel-bid-form{clear:both}
+#dealDialog .sel-spend-hint{padding:10px;border-left:2px solid #dbb869;background:#13161b;color:#edd7ad}
+#dealDialog .sel-pool{margin:12px 0 0;padding:10px 14px}
+#dealDialog .sel-pool summary{font-size:12px}
+#dealDialog .sel-pool>div{max-height:180px;overflow:auto}
+#dealDialog .sel-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:#b9ad96;position:relative}
+#dealDialog .sel-footer details{margin:0;padding:6px 10px;max-width:650px}
+#dealDialog .sel-footer details[open]{position:absolute;bottom:0;right:0;max-height:65vh;overflow:auto;z-index:5;box-shadow:0 0 40px #000}
+#dealDialog .sel-shell.is-finale .sel-board{grid-template-columns:1fr}
+#dealDialog .sel-finale{text-align:center;padding:10px 0 25px}
+#dealDialog .sel-final-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}
+#dealDialog .sel-final-gallery h3{font-size:15px;text-align:center}
+#dealDialog .sel-final-gallery .sel-card>img{height:210px}
+#dealDialog .sel-final-gallery .sel-card>b{text-align:center}
+#dealDialog button:focus-visible,#dealDialog summary:focus-visible{outline:2px solid #ffdda0;outline-offset:3px}
+@keyframes selTotalIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(min-width:1100px) and (max-height:820px){#dealDialog .sel-controls{padding:16px;min-height:340px}#dealDialog .sel-active-cards{margin:12px 0;gap:10px}#dealDialog .sel-active-cards .sel-card>img{height:140px}#dealDialog .sel-shell{gap:8px}#dealDialog .sel-roster-panel{padding:6px}#dealDialog .sel-rosters{gap:2px;grid-auto-rows:minmax(37px,1fr)}#dealDialog .sel-team{min-height:37px;padding:2px 5px}#dealDialog .sel-mini-cards img{height:19px;width:19px}#dealDialog .sel-controls h3{font-size:22px}}
+@media(max-width:1000px){#dealDialog .sel-board{grid-template-columns:240px minmax(0,1fr);gap:10px}#dealDialog .sel-mini-cards img{display:none}#dealDialog .sel-controls{padding:14px}#dealDialog .sel-result-layout{display:block}#dealDialog .sel-result-layout .sel-claimed-card{float:right;width:120px;margin:0 0 12px 12px}#dealDialog .sel-result-layout .sel-claimed-card img{height:150px}#dealDialog .sel-claimed-card{width:120px}#dealDialog .sel-claimed-card .sel-card>img{height:150px}}
+@media(max-width:700px){#dealDialog.deal-selection-mode{height:auto;max-height:96dvh;overflow:auto;display:block}#dealDialog.deal-selection-mode #dealContent{overflow:visible;padding:10px}#dealDialog .sel-shell{display:block;height:auto}#dealDialog .sel-topline{align-items:start;margin-bottom:12px}#dealDialog .sel-progress{gap:4px;font-size:10px}#dealDialog .sel-progress span{padding:5px 7px}#dealDialog .sel-topline>button{font-size:10px;padding:6px;min-width:65px}#dealDialog .sel-board{display:flex;flex-direction:column}#dealDialog .sel-stage{order:0;overflow:visible;padding:0}#dealDialog .sel-roster-panel{order:1}#dealDialog .sel-rosters{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:55px;overflow:visible}#dealDialog .sel-team header{display:block}#dealDialog .sel-team header span{font-size:8px}#dealDialog .sel-mini-cards{gap:2px}#dealDialog .sel-mini-cards>span,#dealDialog .sel-mini-cards b{font-size:8px}#dealDialog .sel-controls h3{font-size:21px}#dealDialog .sel-active-cards{gap:6px}#dealDialog .sel-active-cards .sel-card>img{height:120px}#dealDialog .sel-active-cards .sel-card>b{font-size:11px;min-height:45px;padding:5px}#dealDialog .sel-card button{font-size:11px}#dealDialog .sel-reroll-check{font-size:10px}#dealDialog .sel-footer{margin-top:12px;align-items:start}#dealDialog .sel-footer>span{max-width:180px}#dealDialog .sel-order-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dealDialog .sel-final-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){#dealDialog .sel-total{animation:none}#dealDialog .sel-active-cards .sel-card{transition:none}}
+#dealDialog .sel-footer{margin:0;padding:0;text-align:left;letter-spacing:normal;line-height:1.5;min-height:30px}
+#dealDialog .sel-footer>span{font-size:11px;letter-spacing:normal;color:#c3b8a6}
+#dealDialog .sel-footer details{flex:none}
+#dealDialog .sel-footer summary{letter-spacing:normal}
+@media(min-width:701px) and (max-height:820px){#dealDialog .sel-rosters{gap:2px;grid-auto-rows:minmax(31px,1fr)}#dealDialog .sel-team{min-height:31px;padding:2px 5px}#dealDialog .sel-team header{line-height:1;margin-bottom:1px}#dealDialog .sel-team h3{font-size:10px;line-height:1}#dealDialog .sel-team header span{font-size:8px;line-height:1}#dealDialog .sel-mini-cards img{height:16px;width:16px}#dealDialog .sel-mini-cards>span,#dealDialog .sel-mini-cards b{font-size:8px;line-height:1}}
+#dealDialog .sel-footer{flex-direction:row;opacity:1}
