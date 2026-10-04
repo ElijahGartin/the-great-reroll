@@ -93,7 +93,7 @@
 #dealDialog .deal-pool-chip.is-disabled{filter:grayscale(1);opacity:.3}
 #dealDialog .deal-landed-cards .deal-reel-shell{border-color:var(--deal-class)}
 #dealDialog .deal-landed-cards .deal-reel-caption{color:var(--deal-class)}
-@media(min-width:1100px) and (min-height:740px){
+@media(min-width:700px){
  #dealDialog.deal-board-mode{width:98vw;max-width:1800px;height:96dvh;max-height:96dvh;overflow:hidden}
  #dealDialog.deal-board-mode[open]{display:flex;flex-direction:column}
  #dealDialog.deal-board-mode .deal-head{position:static;padding:10px 18px;flex-shrink:0}
@@ -121,13 +121,19 @@
  #dealDialog.deal-board-mode .deal-board-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px}
  #dealDialog.deal-board-mode .deal-actions{margin:0;gap:8px}
 }
-@media(max-width:1099px),(max-height:739px){#dealDialog .deal-reveal-list{display:block;max-height:none;overflow:visible}#dealDialog .deal-reveal-player{display:grid;grid-template-columns:80px minmax(0,1fr);gap:5px;min-height:46px}#dealDialog .deal-reveal-player-head{display:block}#dealDialog .deal-board-pool{margin-top:14px}#dealDialog .deal-board-race>div{grid-template-columns:repeat(auto-fit,minmax(82px,1fr))}#dealDialog .deal-pool-heading{display:block}}
+@media(max-width:699px){#dealDialog .deal-reveal-list{display:block;max-height:none;overflow:visible}#dealDialog .deal-reveal-player{display:grid;grid-template-columns:80px minmax(0,1fr);gap:5px;min-height:46px}#dealDialog .deal-reveal-player-head{display:block}#dealDialog .deal-board-pool{margin-top:14px}#dealDialog .deal-board-race>div{grid-template-columns:repeat(auto-fit,minmax(82px,1fr))}#dealDialog .deal-pool-heading{display:block}}
 #dealDialog .deal-pool-chip{height:25px;line-height:17px}
 #dealDialog .deal-pool-chip span,#dealDialog .deal-pool-chip small{line-height:17px;margin-top:0;margin-bottom:0}
-@media(min-width:1100px) and (min-height:740px){
+@media(min-width:700px){
  #dealDialog.deal-board-mode .deal-row-hero{padding:0 3px;line-height:11px}
  #dealDialog.deal-board-mode .deal-row-hero b{line-height:12px}
  #dealDialog.deal-board-mode .deal-reveal-player-head b{line-height:13px}
  #dealDialog.deal-board-mode .deal-reveal-player-head small{line-height:10px}
 }
 #dealDialog .deal-row-hero img,#dealDialog .deal-pool-chip img{display:block;margin:0}
+
+/* Fit the desktop board to usable browser space instead of disabling it on short windows. */
+@media(min-width:700px){
+ #dealDialog.deal-board-mode{position:fixed;inset:auto;left:50%;top:50%;margin:0;width:var(--board-width,1100px);height:var(--board-height,740px);max-width:none;max-height:none;transform:translate(-50%,-50%) scale(var(--board-scale,1));transform-origin:center}
+ #dealDialog.deal-board-mode .deal-reveal-order{order:0}
+}
