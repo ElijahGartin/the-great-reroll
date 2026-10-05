@@ -408,5 +408,395 @@
     "path": "assets/hero-cards/alliance/skyborne-druid.jpg",
     "bytes": 276685,
     "mime": "jpeg"
+  },
+  {
+    "path": "assets/backgrounds/alliance-draft.png",
+    "bytes": 2935123,
+    "mime": "png"
+  },
+  {
+    "path": "assets/backgrounds/home.png",
+    "bytes": 2503251,
+    "mime": "png"
+  },
+  {
+    "path": "assets/backgrounds/horde-draft.png",
+    "bytes": 2440875,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/alliance-impact.png",
+    "bytes": 180309,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/alliance-roll-1.png",
+    "bytes": 186622,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/alliance-roll-2.png",
+    "bytes": 178530,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/alliance-settle.png",
+    "bytes": 195572,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/horde-impact.png",
+    "bytes": 176861,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/horde-roll-1.png",
+    "bytes": 183682,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/horde-roll-2.png",
+    "bytes": 174522,
+    "mime": "png"
+  },
+  {
+    "path": "assets/dice/horde-settle.png",
+    "bytes": 192434,
+    "mime": "png"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-hunter.webp",
+    "bytes": 204668,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-paladin.webp",
+    "bytes": 211648,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-priest.webp",
+    "bytes": 211244,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-rogue.webp",
+    "bytes": 173752,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-shaman.webp",
+    "bytes": 236562,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/dwarf-warrior.webp",
+    "bytes": 224466,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/gnome-mage.webp",
+    "bytes": 202862,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/gnome-priest.webp",
+    "bytes": 200720,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/gnome-rogue.webp",
+    "bytes": 153032,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/gnome-warlock.webp",
+    "bytes": 210086,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/gnome-warrior.webp",
+    "bytes": 238892,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-hunter.webp",
+    "bytes": 216178,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-mage.webp",
+    "bytes": 231414,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-paladin.webp",
+    "bytes": 206570,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-priest.webp",
+    "bytes": 185780,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-rogue.webp",
+    "bytes": 171444,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-warlock.webp",
+    "bytes": 180948,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/human-warrior.webp",
+    "bytes": 206754,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/night-elf-druid.webp",
+    "bytes": 240490,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/night-elf-hunter.webp",
+    "bytes": 219986,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/night-elf-priest.webp",
+    "bytes": 184152,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/night-elf-rogue.webp",
+    "bytes": 181016,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/night-elf-warrior.webp",
+    "bytes": 213986,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/skyborne-druid.webp",
+    "bytes": 202532,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/skyborne-hunter.webp",
+    "bytes": 198126,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/skyborne-mage.webp",
+    "bytes": 221128,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/skyborne-rogue.webp",
+    "bytes": 180118,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/alliance/skyborne-warrior.webp",
+    "bytes": 237556,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-hunter.webp",
+    "bytes": 212146,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-mage.webp",
+    "bytes": 204472,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-rogue.webp",
+    "bytes": 145770,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-shaman.webp",
+    "bytes": 217384,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-warlock.webp",
+    "bytes": 179110,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/orc-warrior.webp",
+    "bytes": 200476,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/skyborne-druid.webp",
+    "bytes": 240274,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/skyborne-hunter.webp",
+    "bytes": 198726,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/skyborne-rogue.webp",
+    "bytes": 153398,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/skyborne-shaman.webp",
+    "bytes": 194602,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/skyborne-warrior.webp",
+    "bytes": 188958,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/tauren-druid.webp",
+    "bytes": 224758,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/tauren-hunter.webp",
+    "bytes": 210896,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/tauren-shaman.webp",
+    "bytes": 253060,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/tauren-warrior.webp",
+    "bytes": 236768,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-hunter.webp",
+    "bytes": 188668,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-priest.webp",
+    "bytes": 192102,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-rogue.webp",
+    "bytes": 156452,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-shaman.webp",
+    "bytes": 220520,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-warlock.webp",
+    "bytes": 195414,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/troll-warrior.webp",
+    "bytes": 197468,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-mage.webp",
+    "bytes": 198094,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-paladin.webp",
+    "bytes": 216658,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-priest.webp",
+    "bytes": 210868,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-rogue.webp",
+    "bytes": 181790,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-warlock.webp",
+    "bytes": 180476,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/hero-cards/class-themed/horde/undead-warrior.webp",
+    "bytes": 229840,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/homepage/character-lottery.png",
+    "bytes": 2401766,
+    "mime": "png"
+  },
+  {
+    "path": "assets/homepage/guild-roster-draft.png",
+    "bytes": 2253548,
+    "mime": "png"
+  },
+  {
+    "path": "assets/homepage/name-forge.png",
+    "bytes": 2706725,
+    "mime": "png"
+  },
+  {
+    "path": "assets/how-to-play/all-hands.webp",
+    "bytes": 212786,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/bids.webp",
+    "bytes": 88530,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/brad-wins.webp",
+    "bytes": 78378,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/claim.webp",
+    "bytes": 159374,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/deal.webp",
+    "bytes": 214060,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/defense-demo.webp",
+    "bytes": 48660,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/final-demo.webp",
+    "bytes": 100690,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/order.webp",
+    "bytes": 63318,
+    "mime": "webp"
+  },
+  {
+    "path": "assets/how-to-play/uncontested.webp",
+    "bytes": 53052,
+    "mime": "webp"
   }
 ]

@@ -1,0 +1,9 @@
+(()=>{'use strict';
+const viewer=document.querySelector('#imageViewer'),picture=document.querySelector('#viewerImage'),scroll=viewer.querySelector('.viewer-scroll'),size=document.querySelector('#actualSize');
+document.querySelectorAll('[data-zoom]').forEach(button=>button.addEventListener('click',()=>{const source=button.querySelector('img');picture.src=button.dataset.zoom;picture.alt=source.alt;document.querySelector('#viewerTitle').textContent=source.alt;scroll.classList.remove('actual');size.setAttribute('aria-pressed','false');size.textContent='Actual size';viewer.showModal();scroll.scrollTop=0;scroll.scrollLeft=0}));
+document.querySelector('#closeViewer').addEventListener('click',()=>viewer.close());
+viewer.addEventListener('click',e=>{if(e.target===viewer){const r=viewer.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)viewer.close()}});
+size.addEventListener('click',()=>{const actual=scroll.classList.toggle('actual');size.setAttribute('aria-pressed',String(actual));size.textContent=actual?'Fit to window':'Actual size'});
+document.querySelector('#copyLink').addEventListener('click',async()=>{const status=document.querySelector('#copyStatus');try{await navigator.clipboard.writeText('https://wowwartable.com/how-to-play.html');status.textContent='Link copied—ready for Discord.'}catch{status.textContent='Share: https://wowwartable.com/how-to-play.html'}});
+const links=[...document.querySelectorAll('.contents a')];if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>{const active=entries.filter(e=>e.isIntersecting).sort((a,b)=>a.boundingClientRect.top-b.boundingClientRect.top)[0];if(active)links.forEach(a=>{if(a.hash==='#'+active.target.id)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current')})},{rootMargin:'-10% 0px -60% 0px'});document.querySelectorAll('main>section').forEach(s=>observer.observe(s))}
+})();

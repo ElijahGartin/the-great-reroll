@@ -11,3 +11,147 @@
 #dealDialog .deal-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}#dealDialog .deal-card{min-width:0;overflow:hidden;border:1px solid var(--deal-class,#a68b62);border-radius:5px;background:#101216}#dealDialog .deal-card img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block}#dealDialog .deal-card-copy{padding:8px}#dealDialog .deal-card b{display:block;color:#efdcaf;font:700 13px Georgia,serif;overflow-wrap:anywhere}#dealDialog .deal-card small{display:block;color:#c1b599;font-size:11px;min-height:18px}#dealDialog .deal-card label{font-size:11px;margin-top:7px}#dealDialog .deal-card input{padding:6px}#dealDialog .deal-card button{width:100%;padding:8px 3px;margin-top:8px;font-size:12px}#dealDialog .deal-card.is-chosen{outline:2px solid #dfbf74;outline-offset:2px}#dealDialog .deal-card.is-rejected{opacity:.45}
 #dealDialog .deal-turn{padding:18px;border:1px solid #96713d;background:linear-gradient(110deg,#32231e,#181b23);border-radius:6px;margin-bottom:18px}#dealDialog .deal-turn select{max-width:100%}#dealDialog .deal-turn label{flex:1 1 220px}#dealDialog .deal-turn input{max-width:150px}#dealDialog .deal-result{font-size:17px;color:#f3dfac;padding:14px;background:#202229;border-radius:5px;margin:12px 0}#dealDialog .deal-log{padding-left:22px;overflow-wrap:anywhere}#dealDialog .deal-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}#dealDialog .deal-roster{display:grid;gap:8px;margin:16px 0}#dealDialog .deal-roster div{padding:12px;background:#25252a;border-left:3px solid #b69150}
 @media(max-width:600px){#dealContent{padding:12px}#dealDialog .deal-head{padding:12px}#dealDialog h2{font-size:20px}#dealDialog .deal-hand{padding:10px}#dealDialog .deal-cards{gap:5px}#dealDialog .deal-card-copy{padding:5px}#dealDialog .deal-card b{font-size:12px}#dealDialog button{min-height:44px}#dealDialog input,#dealDialog select{font-size:16px}}
+/* Player-by-player hero reveal. Each track is one viewport high so percentage
+   translation stays correct when the window is resized mid-animation. */
+#dealDialog .deal-reveal-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:start}
+#dealDialog .deal-reveal-order{background:#191b20;border:1px solid #665239;border-radius:5px;padding:12px}
+#dealDialog .deal-reveal-player{padding:10px 8px;border-bottom:1px solid #34312d;overflow-wrap:anywhere}
+#dealDialog .deal-reveal-player b{display:block;font-size:13px}#dealDialog .deal-reveal-player small{font-size:11px;color:#bbad96}
+#dealDialog .deal-reveal-player.is-active{background:#372a1d;border-left:3px solid #d2a95d}
+#dealDialog .deal-reveal-stage{min-width:0;max-width:940px;width:100%;margin:0 auto}
+#dealDialog .deal-reveal-stage>h3{font:700 26px Georgia,serif;margin:8px 0}
+#dealDialog .deal-reels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}
+#dealDialog .deal-reel-shell{min-width:0;border:1px solid #9d7840;border-radius:7px;overflow:hidden;background:#16181e;box-shadow:0 6px 18px #0006}
+#dealDialog .deal-reel{height:clamp(210px,29vw,380px);overflow:hidden;position:relative}
+#dealDialog .deal-reel-track{height:100%;will-change:transform}
+#dealDialog .deal-reel-slide{height:100%;width:100%}
+#dealDialog .deal-reel-slide img{display:block;width:100%;height:100%;object-fit:cover}
+#dealDialog .deal-card-back{height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:18px;background:repeating-linear-gradient(45deg,#b08a4110 0px,#b08a4110 1px,transparent 1px,transparent 14px),radial-gradient(ellipse,#41301e,#12161d 75%);color:#daba77;box-shadow:inset 0 0 0 7px #14171b,inset 0 0 0 8px #715735}
+#dealDialog .deal-card-back span{font-size:56px}#dealDialog .deal-card-back b{font:700 13px Georgia,serif;letter-spacing:1px;text-align:center}#dealDialog .deal-card-back small{font-size:11px;letter-spacing:2px}
+#dealDialog .deal-reel-caption{padding:12px 6px;min-height:44px;text-align:center;font:700 14px Georgia,serif;color:#f0d69b}
+#dealDialog .deal-reel.is-landed{box-shadow:inset 0 0 0 3px #dbb869}
+#dealDialog .deal-revealed-heading{margin-top:30px}
+#dealDialog .deal-reveal-stage .deal-hand{margin:20px 0}
+@media(max-width:700px){#dealDialog .deal-reveal-layout{grid-template-columns:1fr;gap:14px}#dealDialog .deal-reveal-order{order:2;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}#dealDialog .deal-reveal-order h3{grid-column:1/-1}#dealDialog .deal-reels{gap:6px}#dealDialog .deal-reel{height:220px}#dealDialog .deal-card-back b{font-size:11px}#dealDialog .deal-card-back span{font-size:36px}#dealDialog .deal-reel-caption{font-size:12px}#dealDialog .deal-reveal-stage>h3{font-size:22px}}
+@media(prefers-reduced-motion:reduce){#dealDialog .deal-reel-track{will-change:auto}}
+
+/* Keep ownership readable at a glance, including tables of 10+ players. */
+#dealDialog .deal-summary{margin:22px 0;border:1px solid #665239;border-radius:6px;overflow:hidden;background:#17191e}
+#dealDialog .deal-summary table{width:100%;border-collapse:collapse;table-layout:fixed}
+#dealDialog .deal-summary caption{text-align:left;padding:14px 16px;background:#24211e;color:#f3d483;font:700 20px Georgia,serif}
+#dealDialog .deal-summary th,#dealDialog .deal-summary td{text-align:left;padding:10px 16px;border-bottom:1px solid #34312d;vertical-align:middle}
+#dealDialog .deal-summary thead{background:#1e2026;color:#c3b8a6;font-size:12px}
+#dealDialog .deal-summary th:first-child{width:22%}
+#dealDialog .deal-summary tbody th{color:#fff0d7;font-size:16px;overflow-wrap:anywhere}
+#dealDialog .deal-summary tbody tr:last-child>*{border-bottom:0}
+#dealDialog .deal-summary tbody tr:nth-child(even){background:#1d1f25}
+#dealDialog .deal-summary-heroes{display:flex;gap:12px;flex-wrap:wrap}
+#dealDialog .deal-summary-hero{display:flex;align-items:center;gap:9px;flex:1 1 175px;min-width:0;border-left:3px solid var(--deal-class);padding:4px 8px;background:#101216;border-radius:3px}
+#dealDialog .deal-summary-hero img{width:36px;height:42px;object-fit:cover;border-radius:3px;flex-shrink:0}
+#dealDialog .deal-summary-hero b{color:var(--deal-class);font-size:14px;overflow-wrap:anywhere}
+#dealDialog .deal-summary-hero small{display:block;color:#ebd59d;font-size:11px}
+#dealDialog .deal-summary-hero.is-locked{box-shadow:inset 0 0 0 1px #947448}
+@media(max-width:600px){#dealDialog .deal-summary th,#dealDialog .deal-summary td{padding:9px 8px}#dealDialog .deal-summary th:first-child{width:29%}#dealDialog .deal-summary tbody th{font-size:14px}#dealDialog .deal-summary-heroes{gap:6px}#dealDialog .deal-summary-hero{flex-basis:100%;padding:3px 5px;gap:7px}#dealDialog .deal-summary-hero b{font-size:12px}#dealDialog .deal-summary-hero img{width:28px;height:32px}}
+
+/* Reveal progress and all three results stay beside the reels. */
+#dealDialog .deal-reveal-layout{grid-template-columns:290px minmax(0,1fr)}
+#dealDialog .deal-reveal-order{position:sticky;top:100px;padding:0;overflow:hidden}
+#dealDialog .deal-reveal-order h3{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px;margin:0;border-bottom:1px solid #544631}
+#dealDialog .deal-reveal-order h3 small{font:12px 'Segoe UI',sans-serif;color:#c3b8a6}
+#dealDialog .deal-reveal-list{position:relative;max-height:calc(94dvh - 195px);overflow-y:auto;overscroll-behavior:contain;scrollbar-color:#715735 #191b20}
+#dealDialog .deal-reveal-player{padding:10px 12px}
+#dealDialog .deal-reveal-player-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#dealDialog .deal-reveal-player-head b{font-size:14px;min-width:0;overflow-wrap:anywhere}
+#dealDialog .deal-reveal-player-head small{white-space:nowrap;flex-shrink:0}
+#dealDialog .deal-sidebar-heroes{list-style:none;margin:7px 0 0;padding:0;display:grid;gap:4px}
+#dealDialog .deal-sidebar-heroes li{margin:0;padding:0;display:flex;align-items:center;gap:7px;color:var(--deal-class);font-size:12px;font-weight:600;line-height:1.25}
+#dealDialog .deal-sidebar-heroes img{width:21px;height:21px;border:1px solid var(--deal-class);border-radius:3px;flex-shrink:0}
+#dealDialog .deal-sidebar-hidden{display:flex;gap:5px;margin-top:7px}
+#dealDialog .deal-sidebar-hidden span{display:grid;place-items:center;width:21px;height:21px;border:1px solid #514435;border-radius:3px;color:#a99b83;font-size:11px;background:#111317}
+@media(max-width:1000px) and (min-width:701px){#dealDialog .deal-reveal-layout{grid-template-columns:240px minmax(0,1fr);gap:14px}}
+@media(max-width:700px){#dealDialog .deal-reveal-layout{grid-template-columns:1fr}#dealDialog .deal-reveal-order{position:static;order:0;display:block}#dealDialog .deal-reveal-list{max-height:220px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#dealDialog .deal-reveal-player{padding:8px}#dealDialog .deal-reveal-player-head{flex-wrap:wrap;gap:2px 6px}#dealDialog .deal-sidebar-heroes li{font-size:11px}}
+
+/* One-screen reveal board: reserve the same three slots before and after a spin. */
+#dealDialog .deal-row-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;min-width:0}
+#dealDialog .deal-row-hero{display:flex;align-items:center;gap:5px;min-width:0;color:var(--deal-class);background:#111317;border-left:2px solid var(--deal-class);padding:3px 4px;border-radius:3px;font-size:10px;line-height:1.2}
+#dealDialog .deal-row-hero img{width:20px;height:20px;flex-shrink:0;border-radius:3px}
+#dealDialog .deal-row-hero span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dealDialog .deal-row-hero b{font-size:11px;display:block}
+#dealDialog .deal-row-hero.is-hidden{justify-content:center;color:#958772;border-color:#514435}
+#dealDialog .deal-board-pool{border:1px solid #665239;background:#191b20;border-radius:5px;padding:8px 10px;min-width:0}
+#dealDialog .deal-pool-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:6px}
+#dealDialog .deal-pool-heading h3{margin:0;font-size:14px}
+#dealDialog .deal-pool-heading>span{font-size:11px;color:#c3b8a6}
+#dealDialog .deal-board-race{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center;margin:4px 0}
+#dealDialog .deal-board-race>b{font-size:11px;color:#d8c4a0}
+#dealDialog .deal-board-race>div{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+#dealDialog .deal-pool-chip{display:flex;align-items:center;gap:5px;padding:3px 5px;border:1px solid #46413a;background:#111317;border-radius:3px;font-size:11px;min-width:0;color:var(--deal-class)}
+#dealDialog .deal-pool-chip img{width:17px;height:17px}
+#dealDialog .deal-pool-chip small{margin-left:auto;color:#ccbca4;font-size:10px}
+#dealDialog .deal-pool-chip.is-dealt{background:#3a1d20;border-color:#bc5555}
+#dealDialog .deal-pool-chip.is-full{filter:grayscale(1);opacity:.55}
+#dealDialog .deal-pool-chip.is-disabled{filter:grayscale(1);opacity:.3}
+#dealDialog .deal-landed-cards .deal-reel-shell{border-color:var(--deal-class)}
+#dealDialog .deal-landed-cards .deal-reel-caption{color:var(--deal-class)}
+@media(min-width:700px){
+ #dealDialog.deal-board-mode{width:98vw;max-width:1800px;height:96dvh;max-height:96dvh;overflow:hidden}
+ #dealDialog.deal-board-mode[open]{display:flex;flex-direction:column}
+ #dealDialog.deal-board-mode .deal-head{position:static;padding:10px 18px;flex-shrink:0}
+ #dealDialog.deal-board-mode #dealError:empty{display:none}
+ #dealDialog.deal-board-mode #dealContent{padding:12px;flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:12px}
+ #dealDialog.deal-board-mode .deal-reveal-layout{grid-template-columns:minmax(430px,38%) minmax(0,1fr);gap:18px;min-height:0;align-items:stretch}
+ #dealDialog.deal-board-mode .deal-reveal-order{position:static;display:flex;flex-direction:column;min-height:0}
+ #dealDialog.deal-board-mode .deal-reveal-order h3{padding:8px 10px;font-size:15px;flex-shrink:0}
+ #dealDialog.deal-board-mode .deal-reveal-list{max-height:none;min-height:0;flex:1;overflow:visible;display:grid;grid-template-rows:repeat(var(--players),minmax(0,1fr))}
+ #dealDialog.deal-board-mode .deal-reveal-player{display:grid;grid-template-columns:minmax(70px,23%) minmax(0,1fr);gap:5px;padding:2px 6px;min-height:0;border-left:3px solid transparent;align-items:center}
+ #dealDialog.deal-board-mode .deal-reveal-player.is-active{border-left-color:#d2a95d}
+ #dealDialog.deal-board-mode .deal-reveal-player-head{display:block;min-width:0}
+ #dealDialog.deal-board-mode .deal-reveal-player-head b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ #dealDialog.deal-board-mode .deal-reveal-player-head small{display:block;font-size:9px;line-height:1.1}
+ #dealDialog.deal-board-mode .deal-row-slots{height:100%;max-height:40px}
+ #dealDialog.deal-board-mode .deal-reveal-stage{display:flex;flex-direction:column;min-height:0;max-width:none}
+ #dealDialog.deal-board-mode .deal-reveal-stage>h3{font-size:22px;margin:4px 0 8px}
+ #dealDialog.deal-board-mode .deal-reels{flex:1;min-height:0;margin:0;gap:10px}
+ #dealDialog.deal-board-mode .deal-reel-shell{display:flex;flex-direction:column;min-height:0}
+ #dealDialog.deal-board-mode .deal-reel{height:auto;flex:1;min-height:0}
+ #dealDialog.deal-board-mode .deal-reel-track{position:absolute;inset:0}
+ #dealDialog.deal-board-mode .deal-reel-slide{position:relative}
+ #dealDialog.deal-board-mode .deal-reel-slide img{position:absolute;inset:0;object-position:center 25%}
+ #dealDialog.deal-board-mode .deal-reel-caption{padding:8px 4px;min-height:34px;font-size:13px;flex-shrink:0}
+ #dealDialog.deal-board-mode .deal-board-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px}
+ #dealDialog.deal-board-mode .deal-actions{margin:0;gap:8px}
+}
+@media(max-width:699px){#dealDialog .deal-reveal-list{display:block;max-height:none;overflow:visible}#dealDialog .deal-reveal-player{display:grid;grid-template-columns:80px minmax(0,1fr);gap:5px;min-height:46px}#dealDialog .deal-reveal-player-head{display:block}#dealDialog .deal-board-pool{margin-top:14px}#dealDialog .deal-board-race>div{grid-template-columns:repeat(auto-fit,minmax(82px,1fr))}#dealDialog .deal-pool-heading{display:block}}
+#dealDialog .deal-pool-chip{height:25px;line-height:17px}
+#dealDialog .deal-pool-chip span,#dealDialog .deal-pool-chip small{line-height:17px;margin-top:0;margin-bottom:0}
+@media(min-width:700px){
+ #dealDialog.deal-board-mode .deal-row-hero{padding:0 3px;line-height:11px}
+ #dealDialog.deal-board-mode .deal-row-hero b{line-height:12px}
+ #dealDialog.deal-board-mode .deal-reveal-player-head b{line-height:13px}
+ #dealDialog.deal-board-mode .deal-reveal-player-head small{line-height:10px}
+}
+#dealDialog .deal-row-hero img,#dealDialog .deal-pool-chip img{display:block;margin:0}
+
+/* Fit the desktop board to usable browser space instead of disabling it on short windows. */
+@media(min-width:700px){
+ #dealDialog.deal-board-mode{position:fixed;inset:auto;left:50%;top:50%;margin:0;width:var(--board-width,1100px);height:var(--board-height,740px);max-width:none;max-height:none;transform:translate(-50%,-50%) scale(var(--board-scale,1));transform-origin:center}
+ #dealDialog.deal-board-mode .deal-reveal-order{order:0}
+}
+/* Guided entry for the main Great Reroll experience. */
+#dealDialog [data-deal-setup][hidden]{display:none}
+#dealDialog .deal-setup-intro h3{font:700 28px Georgia,serif;margin:8px 0}
+#dealDialog .deal-setup-intro p{color:#c7bba8;margin:8px 0 20px}
+#dealDialog .deal-setup-steps{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+#dealDialog .deal-setup-steps span{font-size:12px;padding:8px 14px;border:1px solid #544937;border-radius:20px;color:#b7ad9c}
+#dealDialog .deal-setup-steps .is-current{background:#513722;border-color:#d5ae64;color:#ffe1a6}
+#dealDialog .deal-setup-explainer{background:#28231d;border-left:3px solid #cca259;padding:16px 20px;margin:20px 0;color:#d6c7ae}
+#dealDialog .deal-setup-explainer b{color:#f3d483}#dealDialog .deal-setup-explainer p{margin:8px 0;font-size:13px}#dealDialog .deal-setup-explainer a{color:#f3d483}
+#dealDialog .deal-review-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+#dealDialog .deal-review-grid>div{padding:18px;background:#1c2026;border:1px solid #625035;border-radius:5px}
+#dealDialog .deal-review-grid small{display:block;color:#baa98b;font-size:10px;letter-spacing:1px}#dealDialog .deal-review-grid b{display:block;font:700 22px Georgia,serif;color:#f6d691;margin-top:7px}
+#dealDialog .deal-review-names{padding:14px;background:#171a1f;overflow-wrap:anywhere;color:#d3c4ac}
+#dealDialog .deal-game-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;padding-left:22px;margin:24px 0}
+#dealDialog .deal-game-path b{display:block;color:#f1d19a}#dealDialog .deal-game-path span{display:block;color:#c2b69f;font-size:12px;margin-top:6px}
+#dealDialog .deal-setup-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:24px;padding-top:16px;border-top:1px solid #544735}
+@media(max-width:650px){#dealDialog .deal-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#dealDialog .deal-review-grid>div{padding:12px}#dealDialog .deal-review-grid b{font-size:18px}#dealDialog .deal-game-path{grid-template-columns:1fr;gap:12px}#dealDialog .deal-setup-steps{gap:5px}#dealDialog .deal-setup-steps span{font-size:10px;padding:7px 9px}}
+#dealDialog .deal-setup-actions{position:sticky;bottom:0;background:#111317;padding:12px 0;z-index:3;box-shadow:0 -10px 15px #111317}

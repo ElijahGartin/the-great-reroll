@@ -7,7 +7,7 @@ COPY --from=runtime /usr/local/LICENSE /usr/share/doc/node/LICENSE
 COPY --from=runtime --chown=1000:1000 /data /data
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data
-COPY --chown=1000:1000 package.json index.html online.html asset-manifest.json project-manifest.json ./
+COPY --chown=1000:1000 package.json index.html online.html how-to-play.html asset-manifest.json project-manifest.json ./
 COPY --chown=1000:1000 assets ./assets
 COPY --chown=1000:1000 css ./css
 COPY --chown=1000:1000 data ./data
