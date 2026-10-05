@@ -108,6 +108,10 @@ test('validates JSON, configuration, request size, origin, and static allowlist'
   assert.equal((await f.request('/api/rooms', { method: 'POST', body: {}, headers: { Origin: 'https://attacker.example' } })).status, 403);
   for (const resource of ['/server/server.cjs', '/.git/config', '/docs/test', '/assets/%2e%2e%2fserver/server.cjs', '/assets/%2e%2e%2f.git/config']) assert.equal((await f.request(resource)).status, 404, resource);
   assert.equal((await f.request('/')).status, 200);
+  const guide = await f.request('/how-to-play.html');
+  assert.equal(guide.status, 200); assert.match(guide.headers.get('content-type'), /text\/html/);
+  assert.match(guide.data, /how-to-play.js/);
+  for (const resource of ['/js/selection-engine.js', '/css/hero-class-theme.css', '/assets/how-to-play/deal.webp', '/assets/hero-cards/class-themed/horde/orc-warrior.webp']) assert.equal((await f.request(resource)).status, 200, resource);
   assert.equal((await f.request('/healthz')).status, 200);
   assert.equal((await f.request('/readyz')).status, 200);
 });

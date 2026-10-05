@@ -1,0 +1,40 @@
+/* Class identity follows the shared WoW palette in data/characters.js. */
+#offers .option.gr-hero-option {
+  border: 2px solid var(--class-color) !important;
+  box-shadow: 0 10px 26px #0008, 0 0 16px color-mix(in srgb, var(--class-color) 16%, transparent);
+}
+#offers .gr-hero-option .gr-choice-name {
+  color: var(--class-color) !important;
+  text-shadow: 0 2px 3px #000;
+}
+#dealDialog .deal-card {
+  border: 2px solid var(--deal-class, #a68b62);
+  box-shadow: 0 5px 16px #0006, 0 0 12px color-mix(in srgb, var(--deal-class) 12%, transparent);
+}
+#dealDialog .deal-card b {
+  color: var(--deal-class);
+  text-shadow: 0 2px 3px #000;
+}
+#dealDialog .deal-card-art { position: relative; }
+#dealDialog .deal-class-icon {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: clamp(26px, 3vw, 40px);
+  aspect-ratio: 1;
+  padding: 2px;
+  border: 2px solid var(--deal-class);
+  border-radius: 5px;
+  background: #101216;
+  box-shadow: 0 3px 9px #000b;
+}
+#dealDialog .deal-class-icon img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 2px;
+}
+#dealDialog .deal-reel-shell.is-landed { border-color: var(--deal-class); }
+#dealDialog .deal-reel-shell.is-landed .deal-reel-caption { color: var(--deal-class); }
+#dealDialog .deal-reel.is-landed { box-shadow: inset 0 0 0 3px var(--deal-class); }

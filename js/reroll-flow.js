@@ -154,6 +154,8 @@ function close(options={}){
 
 function playersUI(){
   let l=$('rrPlayerList');
+  let groups=$('rrSavedGroups');if(!groups){groups=document.createElement('div');groups.id='rrSavedGroups';l.before(groups)}
+  window.GR_PLAYER_GROUPS.mount(groups,()=>st.players,names=>{st.players=names;playersUI();summary()});
   l.innerHTML=st.players.map((n,i)=>`<div class="rr-player-row"><span class="rr-player-index">${i+1}</span><input class="rr-field rr-player-name" data-i="${i}" maxlength="32" value="${esc(n)}"><button class="rr-player-remove" type="button" data-remove="${i}" ${st.players.length<=1?'disabled':''}>×</button></div>`).join('');
   l.querySelectorAll('.rr-player-name').forEach(e=>e.oninput=()=>{st.players[+e.dataset.i]=e.value;summary()});
   l.querySelectorAll('[data-remove]').forEach(e=>e.onclick=()=>{if(st.players.length>1){st.players.splice(+e.dataset.remove,1);render()}});
@@ -388,7 +390,8 @@ $('rrNext').onclick=()=>{
 };
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!flow.classList.contains('hidden'))close()});
-if($('grHomeLottery'))$('grHomeLottery').onclick=()=>{st.closeDestination=null;open()};
+window.GR_STANDARD_DRAFT={open:()=>{st.closeDestination=null;open()}};
+if($('grHomeLottery'))$('grHomeLottery').onclick=window.GR_STANDARD_DRAFT.open;
 
 /* Split live-draft actions:
    NEW DRAFT = destructive reset with the existing confirmation.

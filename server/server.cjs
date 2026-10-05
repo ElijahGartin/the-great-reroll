@@ -116,7 +116,7 @@ function createApp(options = {}) {
   async function serveStatic(req, res, url) {
     if (!['GET', 'HEAD'].includes(req.method)) fail(405, 'Method not allowed');
     let relative; try { relative = decodeURIComponent(url.pathname).slice(1) || 'index.html'; } catch { fail(400, 'Invalid path'); }
-    if (!/^(index\.html|online\.html|(?:asset|project)-manifest\.json|(?:css|js|data|assets)\/[A-Za-z0-9_./ -]+)$/.test(relative) || relative.split('/').some(p => p.startsWith('.')) || relative.includes('\\')) fail(404, 'Not found');
+    if (!/^(index\.html|online\.html|how-to-play\.html|(?:asset|project)-manifest\.json|(?:css|js|data|assets)\/[A-Za-z0-9_./ -]+)$/.test(relative) || relative.split('/').some(p => p.startsWith('.')) || relative.includes('\\')) fail(404, 'Not found');
     const target = path.resolve(root, relative);
     let resolved; try { resolved = await realpath(target); } catch { fail(404, 'Not found'); }
     if (!resolved.startsWith(root + path.sep)) fail(404, 'Not found');

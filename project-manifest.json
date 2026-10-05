@@ -8,7 +8,11 @@
     "css/war-table-ui.css",
     "css/character-pool.css",
     "css/deal-everyone.css",
-    "css/online.css"
+    "css/online.css",
+    "css/selection-round.css",
+    "css/player-groups.css",
+    "css/hero-class-theme.css",
+    "css/how-to-play.css"
   ],
   "scripts": [
     "data/characters.js",
@@ -21,14 +25,21 @@
     "js/deal-engine.js",
     "js/deal-everyone.js",
     "js/campfire.js",
-    "js/online.js"
+    "js/online.js",
+    "js/player-groups.js",
+    "js/selection-engine.js",
+    "js/selection-ui.js",
+    "js/table-dice.js",
+    "js/how-to-play.js"
   ],
   "asset_roots": [
     "assets/backgrounds",
     "assets/hero-cards",
     "assets/icons",
     "assets/dice",
-    "assets/homepage"
+    "assets/homepage",
+    "assets/how-to-play"
   ],
-  "notes": "Local tools remain browser-side. Private online rooms require the Node server and persistent SQLite storage. The legacy index page retains an inline presentation script."
+  "notes": "Local tools remain browser-side. Private online rooms require the Node server and persistent SQLite storage. The legacy index page retains an inline presentation script. Guild Selection, balanced deals, saved player groups, and the illustrated guide apply to shared-screen play. Online rooms retain the persistent Draft and Deal Everyone rules.",
+  "guide_entrypoint": "how-to-play.html"
 }
