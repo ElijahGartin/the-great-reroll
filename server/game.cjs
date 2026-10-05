@@ -244,7 +244,7 @@ function start(room, now = Date.now()) {
 function current(game) { return game.players[game.order[game.turn % game.order.length]]; }
 function characterName(value) {
   const name = value === undefined ? '' : value;
-  check(typeof name === 'string' && name.trim().length <= 36 && !/[\x00-\x1f\x7f]/.test(name), 'Character names must be at most 36 characters without control characters.');
+  check(typeof name === 'string' && name.trim().length <= 36 && !/[\x00-\x1f\x7f-\x9f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/.test(name), 'Character names must be at most 36 characters without control characters.');
   return name.trim();
 }
 function finishPick(room, index, name, now) {

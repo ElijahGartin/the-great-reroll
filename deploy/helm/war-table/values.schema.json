@@ -189,6 +189,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "externallyManaged": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean"
         },
@@ -225,6 +228,30 @@
       "type": "integer",
       "minimum": 1,
       "maximum": 1000000
+    },
+    "lobbyTtlDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3650
+    },
+    "roomCreatesPerHour": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "maxDbBytes": {
+      "type": "integer",
+      "minimum": 1048576,
+      "maximum": 1099511627776
+    },
+    "commandHistoryPerSeat": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "trustProxy": {
+      "type": "string",
+      "enum": ["", "cloudflare"]
     },
     "images": {
       "type": "object",

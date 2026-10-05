@@ -76,6 +76,13 @@ Additional chart limits map directly to server environment variables:
 | `maxCommandsPerRoom` | `MAX_COMMANDS_PER_ROOM` | 20000 |
 | `maxBodyBytes` | `MAX_BODY_BYTES` | 16384 |
 | `rateLimitPerMinute` | `RATE_LIMIT_PER_MINUTE` | 3600 |
+| `lobbyTtlDays` | `LOBBY_TTL_DAYS` (rooms that never started; capped at `roomTtlDays`) | 7 |
+| `roomCreatesPerHour` | `ROOM_CREATES_PER_HOUR` (per client) | 20 |
+| `maxDbBytes` | `MAX_DB_BYTES` (new rooms and lobby changes stop at 80%, started games at 100%; keep well below the PVC size if backups share it) | 2147483648 |
+| `commandHistoryPerSeat` | `COMMAND_HISTORY_PER_SEAT` (idempotency replay records kept per seat) | 16 |
+| `trustProxy` | `TRUST_PROXY` (`""` or `cloudflare`) | `""` |
+
+`trustProxy: cloudflare` keys the API and room-creation limits on `CF-Connecting-IP`. Enable it only when NetworkPolicy admits the Cloudflare tunnel connector as the sole client of port 3000 (plus monitoring, which does not call `/api/`); otherwise any in-cluster caller could choose its own rate-limit identity. The chart refuses it unless `networkPolicy.enabled` or `networkPolicy.externallyManaged` (an environment-owned equivalent policy) is true. IPv6 clients are limited per /64. The server serves only canonical request paths, so a path-routing proxy cannot reach `/metrics`, `/healthz` or `/readyz` through dot-segments.
 
 The pod runs as UID/GID 1000 with a read-only root filesystem, all Linux capabilities dropped, no privilege escalation, RuntimeDefault seccomp, no service-account token, and a writable PVC plus bounded `/tmp`. Requests and limits are configurable; defaults are starting points, not a measured capacity promise.
 

@@ -33,7 +33,7 @@ Rooms expire after **30 days without an accepted change**, configurable with `RO
 
 The host can remove guests **before play starts** and transfer hosting to another guest. A disconnect does not erase the room or automatically transfer hosting. The original host can return using their browser or saved recovery code. A guest who loses both their browser credential and recovery file cannot reclaim a seat by name. During an active game, seats cannot be removed/reassigned; recover the existing seat or export progress and start a new room. There is no account/password-reset service or automatic host takeover.
 
-Deal Everyone preserves visible hands and defense allocations. Players submit and lock their own defense; steals begin once all have submitted. Joining is limited to the lobby. Rooms allow up to 40 seats, but the selected pool/rules determine whether a game can start: Deal Everyone requires three distinct eligible combinations per player. The current faction pools therefore support at most nine players in that mode. Adjust the pool and draft choices to your group before creating the room.
+Deal Everyone preserves visible hands and defense allocations. Players submit and lock their own sealed defense (other players see only that it is locked); steals begin once all have submitted. Joining is limited to the lobby. Rooms allow up to 40 seats, but the selected pool/rules determine whether a game can start: Deal Everyone requires three distinct eligible combinations per player. The current faction pools therefore support at most nine players in that mode. Adjust the pool and draft choices to your group before creating the room.
 
 ## Implementation and verification
 
@@ -57,7 +57,7 @@ npm run check:chart # requires Helm; render and reject unsafe/invalid configurat
 | Backup and operations | `scripts/backup.cjs`, [Kubernetes runbook](docs/kubernetes.md) |
 | Local Deal Everyone rules | [Game guide](docs/deal-everyone.md) |
 
-The multiplayer server replaces the former online-lobby preview. The legacy UI still contains an inline presentation script; it is not a fully modular application. Online hard roster enforcement also checks that remaining players can receive distinct eligible characters, preventing impossible assignments that the earlier browser-only checks could miss.
+The multiplayer server replaces the former online-lobby preview. The legacy UI is not a fully modular application, but it no longer needs inline scripts. Online hard roster enforcement also checks that remaining players can receive distinct eligible characters, preventing impossible assignments that the earlier browser-only checks could miss.
 
 ## Analytics
 

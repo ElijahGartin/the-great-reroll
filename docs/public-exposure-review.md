@@ -42,9 +42,14 @@ request paths/query strings also deserve restricted access-log retention.
   spreadsheet formula prefixes in CSV cells.
 - Static files use an explicit allowlist and resolved-path containment. The online
   page has a same-origin Content Security Policy without inline script permission;
-  guest strings are escaped before rendering. Legacy pages retain inline-script
-  permission. Operational endpoints expose fixed gauges/readiness only, but are
-  intentionally excluded from the planned public tunnel route.
+  guest strings are escaped before rendering. Legacy pages no longer allow inline
+  scripts either. Only canonical request paths are served. Operational endpoints
+  expose fixed gauges/readiness only, but are intentionally excluded from the
+  public tunnel route.
+- Guest and character names reject control, invisible and bidirectional formatting
+  characters; name uniqueness compares NFKC-normalized, case-folded forms.
+- Deal Everyone defense allocations are sealed: each seat sees only its own until
+  every player has locked.
 
 Evidence: [server access, routing, and limits](../server/server.cjs),
 [client credential handling](../js/online.js), and
@@ -52,19 +57,22 @@ Evidence: [server access, routing, and limits](../server/server.cjs),
 
 ## Beta limitations and operational risks
 
-The application has **no per-client limit behind the proxy**. It deliberately uses
-only the direct socket peer and ignores forwarded IP headers. The default limit
-is 3,600 API requests per minute per proxy peer, shared by every guest using that
-peer. Visible clients poll every 1.5 seconds (about 40 requests/minute each), so
+By default the application keys limits on the direct socket peer and ignores
+forwarded IP headers. Behind the tunnel, set `trustProxy: cloudflare` (with the
+connector-only NetworkPolicy) so API and room-creation limits apply per
+`CF-Connecting-IP`. Without it the default limit is 3,600 API requests per minute
+per proxy peer, shared by every guest using that peer. Visible clients poll every 1.5 seconds (about 40 requests/minute each), so
 roughly 90 clients exhaust that allowance before game actions. Set an appropriate
 aggregate budget with headroom and watch errors; this is not a tested capacity
 promise. Generic Cloudflare availability does not prove any configured per-client
 rate limit, bot protection rule, or creation quota, and this review claims none.
 
-Anonymous creation can consume the default global 1,000-room capacity. Rooms
-expire 30 days after their last accepted change; passive reads and exports do not
-extend retention. The current release has no creation-specific quota, deletion
-UI, or account-based abuse controls. A malicious client can exhaust room capacity
+Anonymous creation is limited per client (`roomCreatesPerHour`, default 20) but can
+still consume the global 1,000-room capacity from many addresses. Lobbies that never
+start expire after `lobbyTtlDays` (default 7); started rooms expire 30 days after their
+last accepted change. Passive reads and exports do not extend retention. Each seat
+keeps only its most recent idempotency records, and new rooms/actions are refused
+with 507 above `maxDbBytes`. There is no deletion UI or account-based abuse control. A malicious client can exhaust room capacity
 or the shared request budget and disrupt other guests. Public beta therefore has
 an explicit availability risk; private room codes protect room access, not service
 capacity. Respond through the environment's exposure controls and GitOps workflow

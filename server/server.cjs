@@ -3,6 +3,7 @@ const http = require('node:http');
 const { randomBytes, randomUUID, createHash } = require('node:crypto');
 const { readFile, realpath } = require('node:fs/promises');
 const path = require('node:path');
+const { isIPv6 } = require('node:net');
 const { createStore } = require('./store.cjs');
 
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -24,16 +25,50 @@ function createApp(options = {}) {
   const maxCommands = positive(options.maxCommands ?? process.env.MAX_COMMANDS_PER_ROOM, 20000);
   const bodyLimit = positive(options.bodyLimit ?? process.env.MAX_BODY_BYTES, 16384);
   const requestLimit = positive(options.rateLimit ?? process.env.RATE_LIMIT_PER_MINUTE, 3600);
+  // Rooms that never leave the lobby are cheap to create anonymously, so they expire sooner.
+  const lobbyTtl = Math.min(ttl, positive(options.lobbyTtlDays ?? process.env.LOBBY_TTL_DAYS, 7) * DAY);
+  const createLimit = positive(options.createLimit ?? process.env.ROOM_CREATES_PER_HOUR, 20);
+  const maxDbBytes = positive(options.maxDbBytes ?? process.env.MAX_DB_BYTES, 2147483648);
+  // Only replays of recent commands matter; older ids fail the room-version check anyway.
+  const commandHistory = positive(options.commandHistory ?? process.env.COMMAND_HISTORY_PER_SEAT, 16);
+  // 'cloudflare' trusts CF-Connecting-IP. Enable only when NetworkPolicy admits the tunnel connector alone.
+  const trustProxy = options.trustProxy ?? process.env.TRUST_PROXY ?? '';
+  if (!['', 'cloudflare'].includes(trustProxy)) throw new Error("TRUST_PROXY must be empty or 'cloudflare'");
   const store = createStore(dataDir);
-  const rates = new Map();
+  const rates = new Map(), creates = new Map();
   let draining = false;
-  const persist = room => { room.version += 1; room.updatedAt = now(); room.expiresAt = now() + ttl; store.put(room); };
+  const persist = room => { room.version += 1; room.updatedAt = now(); room.expiresAt = now() + (room.status === 'lobby' ? lobbyTtl : ttl); store.put(room); };
+  // New rooms and lobby changes stop at 80% so games already in progress can still finish.
+  function capacity(started = false) { if (store.bytes() >= (started ? maxDbBytes : Math.floor(maxDbBytes * 0.8))) fail(507, 'Storage capacity reached; try again later'); }
+  function client(req) {
+    const forwarded = trustProxy === 'cloudflare' ? req.headers['cf-connecting-ip'] : undefined;
+    const ip = typeof forwarded === 'string' && /^[0-9a-fA-F.:]{2,45}$/.test(forwarded) ? forwarded : req.socket.remoteAddress || '';
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+    if (mapped || !isIPv6(ip)) return mapped ? mapped[1] : ip;
+    // One IPv6 subscriber controls a whole /64, so limits apply per /64.
+    const [head, tail = ''] = ip.toLowerCase().split('::'), h = head ? head.split(':') : [], t = tail ? tail.split(':') : [];
+    return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].slice(0, 4).map(part => part.replace(/^0+(?=.)/, '')).join(':') + '::/64';
+  }
+  // Fixed-size windows; when full, evict the oldest client instead of refusing everyone new.
+  function bucket(map, key, ms) {
+    let entry = map.get(key);
+    if (!entry || entry.until <= now()) { map.delete(key); if (map.size >= 10000) map.delete(map.keys().next().value); entry = { n: 0, until: now() + ms }; map.set(key, entry); }
+    return entry;
+  }
+  // Each seat sees only its own sealed Deal Everyone defense until every allocation locks.
+  function view(room, viewer) {
+    const game = room.game;
+    if (game?.mode !== 'deal' || game.phase !== 'defense' || !game.submissions) return room;
+    const submissions = Object.fromEntries(Object.entries(game.submissions).map(([id, value]) => [id, id === viewer ? value : true]));
+    return { ...room, game: { ...game, submissions } };
+  }
   function getRoom(code) { const room = store.get(code); if (!room || room.expiresAt <= now()) fail(404, 'Room not found or expired'); return room; }
   function tick(room) { if (room.status === 'playing' && game.tick(room, now())) persist(room); return room; }
   function name(value, room) {
-    if (typeof value !== 'string' || !value.trim() || value.trim().length > 32 || /[\x00-\x1f\x7f]/.test(value)) fail(400, 'Guest name must contain 1–32 printable characters');
-    const clean = value.trim();
-    if (room?.participants.some(p => p.name.toLowerCase() === clean.toLowerCase())) fail(409, 'That guest name is already in use');
+    // Reject controls plus invisible/bidi formatting characters that enable look-alike guest names.
+    if (typeof value !== 'string' || !value.trim() || value.trim().length > 32 || /[\x00-\x1f\x7f-\x9f\u00ad\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/.test(value)) fail(400, 'Guest name must contain 1–32 printable characters');
+    const clean = value.trim(), key = text => text.normalize('NFKC').toLowerCase();
+    if (room?.participants.some(p => key(p.name) === key(clean))) fail(409, 'That guest name is already in use');
     return clean;
   }
   function seat(room, guestName) {
@@ -127,9 +162,13 @@ function createApp(options = {}) {
   }
   const server = http.createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
     try {
+      // Proxies may route on the decoded-but-unnormalized path, so only canonical paths are served.
+      const raw = (req.url || '').split('?')[0];
+      if (!raw.startsWith('/') || /%2e|%2f|%5c|\\/i.test(raw) || /(^|\/)\.{1,2}(\/|$)/.test(raw)) fail(404, 'Not found');
       const url = new URL(req.url, 'http://localhost');
+      if (url.pathname !== raw) fail(404, 'Not found');
       if (url.pathname === '/online.html') res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
       if (publicOrigin?.startsWith('https://')) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
       if (url.pathname === '/metrics') {
@@ -152,16 +191,18 @@ function createApp(options = {}) {
       if (url.pathname === '/readyz') { const ready = !draining && store.healthy(); return send(res, ready ? 200 : 503, { ready }); }
       if (draining) fail(503, 'Server is shutting down');
       if (!url.pathname.startsWith('/api/')) return await serveStatic(req, res, url);
-      const ip = req.socket.remoteAddress;
-      let rate = rates.get(ip); if (!rate || rate.until <= now()) { if (rates.size >= 10000 && !rates.has(ip)) fail(429, 'Too many clients'); rate = { n: 0, until: now() + 60000 }; rates.set(ip, rate); }
-      if (++rate.n > requestLimit) fail(429, 'Too many requests');
+      const ip = client(req);
+      if (++bucket(rates, ip, 60000).n > requestLimit) fail(429, 'Too many requests');
       if (req.method === 'POST') origin(req);
       if (req.method === 'POST' && url.pathname === '/api/rooms') {
+        const quota = bucket(creates, ip, 3600000);
+        if (quota.n >= createLimit) fail(429, 'Too many rooms created; try again later');
         const input = await body(req);
         const config = game.normalizeConfig(input.mode, input.config === undefined ? {} : input.config);
         const guest = name(input.name);
+        quota.n += 1;
         return send(res, 201, store.transaction(() => {
-          store.prune(now()); if (store.count() >= maxRooms) fail(503, 'Room capacity reached');
+          store.prune(now()); if (store.count() >= maxRooms) fail(503, 'Room capacity reached'); capacity();
           let code; do { code = randomBytes(5).toString('hex').toUpperCase(); } while (store.get(code));
           const room = { code, mode: input.mode, version: 0, status: 'lobby', hostId: null, participants: [], config, game: null, createdAt: now(), updatedAt: now(), expiresAt: now() + ttl };
           const result = seat(room, guest); room.hostId = result.participantId; persist(room); cookie(res, room.code, result.token); return result;
@@ -174,7 +215,7 @@ function createApp(options = {}) {
         const input = await body(req);
         return send(res, 201, store.transaction(() => {
           const room = getRoom(code); if (room.status !== 'lobby') fail(409, 'This game has already started');
-          if (room.participants.length >= Math.min(40, room.config.maxPlayers || 40)) fail(409, 'Room is full');
+          if (room.participants.length >= Math.min(40, room.config.maxPlayers || 40)) fail(409, 'Room is full'); capacity();
           const result = seat(room, name(input.name, room)); persist(room); cookie(res, code, result.token); return result;
         }));
       }
@@ -184,10 +225,10 @@ function createApp(options = {}) {
         const participantId = store.authenticate(code, hash(input.token));
         if (!participantId) fail(401, 'Invalid recovery code');
         const room = store.transaction(() => tick(getRoom(code)));
-        cookie(res, code, input.token); return send(res, 200, { room, participantId });
+        cookie(res, code, input.token); return send(res, 200, { room: view(room, participantId), participantId });
       }
       const actor = authenticate(req, code);
-      if (req.method === 'GET' && !route) return send(res, 200, store.transaction(() => ({ room: tick(getRoom(code)), participantId: actor })));
+      if (req.method === 'GET' && !route) return send(res, 200, store.transaction(() => ({ room: view(tick(getRoom(code)), actor), participantId: actor })));
       if (req.method === 'POST' && route === 'actions') {
         const input = await body(req);
         if (typeof input.id !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(input.id)) fail(400, 'An action id is required');
@@ -195,10 +236,12 @@ function createApp(options = {}) {
           const room = getRoom(code);
           const serialized = JSON.stringify(input);
           const previous = store.command(code, actor, input.id);
-          if (previous) { if (previous.body !== serialized) fail(409, 'Action id was already used for a different request'); return JSON.parse(previous.response); }
-          if (store.commandCount(code) >= maxCommands) fail(409, 'Room action limit reached; export this game');
+          if (previous) { if (previous.body !== serialized) fail(409, 'Action id was already used for a different request'); const prior = JSON.parse(previous.response); return { ...prior, room: view(prior.room, actor) }; }
+          const used = room.actions ?? store.commandCount(code);
+          if (used >= maxCommands) fail(409, 'Room action limit reached; export this game');
+          capacity(room.status !== 'lobby'); room.actions = used + 1;
           tick(room); act(room, actor, input);
-          const response = { room, participantId: actor }; store.record(code, actor, input.id, serialized, response); cookie(res, code, credential(req, code)); return response;
+          const response = { room: view(room, actor), participantId: actor }; store.record(code, actor, input.id, serialized, response); store.trim(code, actor, commandHistory); cookie(res, code, credential(req, code)); return response;
         }));
       }
       if (req.method === 'GET' && route === 'export') {
@@ -220,7 +263,7 @@ function createApp(options = {}) {
   server.maxConnections = 1000; server.setTimeout(15000);
   server.requestTimeout = 10000; server.headersTimeout = 10000; server.keepAliveTimeout = 5000; server.maxRequestsPerSocket = 1000;
   const timer = setInterval(() => {
-    try { store.transaction(() => { store.prune(now()); for (const room of store.active()) tick(room); }); for (const [ip, rate] of rates) if (rate.until <= now()) rates.delete(ip); } catch (error) { console.error('Persistence maintenance failed:', error.message); }
+    try { store.transaction(() => { store.prune(now()); for (const room of store.active()) tick(room); }); for (const map of [rates, creates]) for (const [ip, rate] of map) if (rate.until <= now()) map.delete(ip); } catch (error) { console.error('Persistence maintenance failed:', error.message); }
   }, 1000); timer.unref();
   let closed;
   function close() {
