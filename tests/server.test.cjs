@@ -395,3 +395,12 @@ test('stored replays are redacted for the requesting seat', async t => {
   assert.equal(replay.data.room.game.submissions[seats[0].participantId], true);
   assert.deepEqual(replay.data.room.game.submissions[seats[1].participantId], [9, 9, 9]);
 });
+
+test('room creation that fails for capacity does not spend the creation quota', async t => {
+  const f = await fixture(t, { trustProxy: 'cloudflare', createLimit: 1, maxRooms: 1 });
+  const create = (ip, name) => f.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: { name, mode: 'draft', config: {} } });
+  assert.equal((await create('203.0.113.1', 'Host')).status, 201);
+  for (let i = 0; i < 3; i++) assert.equal((await create('203.0.113.2', 'Later')).status, 503, `attempt ${i}`);
+  const full = await fixture(t, { trustProxy: 'cloudflare', createLimit: 1, maxDbBytes: 1 });
+  for (let i = 0; i < 2; i++) assert.equal((await full.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': '203.0.113.3' }, body: { name: 'Host', mode: 'draft', config: {} } })).status, 507);
+});

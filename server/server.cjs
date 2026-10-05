@@ -197,16 +197,20 @@ function createApp(options = {}) {
       if (req.method === 'POST' && url.pathname === '/api/rooms') {
         const quota = bucket(creates, ip, 3600000);
         if (quota.n >= createLimit) fail(429, 'Too many rooms created; try again later');
-        const input = await body(req);
-        const config = game.normalizeConfig(input.mode, input.config === undefined ? {} : input.config);
-        const guest = name(input.name);
-        quota.n += 1;
-        return send(res, 201, store.transaction(() => {
+        // Reserve a slot so concurrent requests cannot overshoot; refund it unless a room is committed.
+        quota.n += 1; let created;
+        try {
+          const input = await body(req);
+          const config = game.normalizeConfig(input.mode, input.config === undefined ? {} : input.config);
+          const guest = name(input.name);
+          created = store.transaction(() => {
           store.prune(now()); if (store.count() >= maxRooms) fail(503, 'Room capacity reached'); capacity();
           let code; do { code = randomBytes(5).toString('hex').toUpperCase(); } while (store.get(code));
           const room = { code, mode: input.mode, version: 0, status: 'lobby', hostId: null, participants: [], config, game: null, createdAt: now(), updatedAt: now(), expiresAt: now() + ttl };
           const result = seat(room, guest); room.hostId = result.participantId; persist(room); cookie(res, room.code, result.token); return result;
-        }));
+          });
+        } finally { if (!created) quota.n -= 1; }
+        return send(res, 201, created);
       }
       const match = /^\/api\/rooms\/([A-Z0-9]{8,10})(?:\/(join|actions|export|resume))?$/.exec(url.pathname);
       if (!match) fail(404, 'Not found');

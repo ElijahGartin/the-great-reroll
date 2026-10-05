@@ -43,7 +43,7 @@ The disposable cluster, containers, test volumes, private test credentials, and 
 
 The [deployment runbook](kubernetes.md) specifies the image, values, storage requirements, backup/restore, and rollback procedure. Before admitting users on the real environment, validate its registry pull permissions, CSI access mode and locking, HTTPS origin/certificate/ingress routing, and separate physical devices over the final hostname. Workload capacity and high availability were not tested or promised: this is a single-replica release with upgrade downtime and configurable limits.
 
-Saved rooms default to 30 days of inactivity. Hosts explicitly pause timed games and transfer hosting when needed. There is no automatic host takeover or credential reset; the [user guide](../README.md#play-and-return-later) documents recovery and lost-credential behavior.
+Saved rooms default to 30 days of inactivity (7 days for lobbies that never start). Hosts explicitly pause timed games and transfer hosting when needed. There is no automatic host takeover or credential reset; the [user guide](../README.md#play-and-return-later) documents recovery and lost-credential behavior.
 
 ## Minimal runtime verification — 2026-10-04
 
