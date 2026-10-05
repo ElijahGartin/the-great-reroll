@@ -3,7 +3,7 @@ application:
   id: war-table
   name: War Table
   owner: ThunderRockTech
-  tier: internal
+  tier: public
   description: Private persistent multiplayer character drafts and Deal Everyone games.
 artifacts:
   chartName: war-table
