@@ -9,6 +9,7 @@
     "test": "node --test tests/*.test.cjs",
     "check": "node scripts/check-syntax.cjs",
     "check:chart": "node scripts/check-chart.cjs",
-    "backup": "node scripts/backup.cjs"
+    "backup": "node scripts/backup.cjs",
+    "qualify:production": "node scripts/qualify-production.cjs"
   }
 }
