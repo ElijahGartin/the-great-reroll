@@ -24,6 +24,7 @@
     "js/character-pool.js",
     "js/deal-engine.js",
     "js/deal-everyone.js",
+    "js/tool-title.js",
     "js/campfire.js",
     "js/online.js",
     "js/player-groups.js",

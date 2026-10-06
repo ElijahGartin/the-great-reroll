@@ -6,6 +6,9 @@
 {{- if not (regexMatch "^https://[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?(:[0-9]{1,5})?$" $origin) -}}
 {{- fail "publicOrigin must be an HTTPS origin without a path, credentials, or trailing slash" -}}
 {{- end -}}
+{{- if and (eq .Values.trustProxy "cloudflare") (not (or .Values.networkPolicy.enabled .Values.networkPolicy.externallyManaged)) -}}
+{{- fail "trustProxy=cloudflare requires networkPolicy.enabled or networkPolicy.externallyManaged so only the tunnel connector can set CF-Connecting-IP" -}}
+{{- end -}}
 {{- $port := regexFind ":[0-9]+$" $origin -}}
 {{- if $port -}}
 {{- $number := trimPrefix ":" $port | int -}}
@@ -96,6 +99,16 @@ spec:
               value: {{ .Values.maxBodyBytes | quote }}
             - name: RATE_LIMIT_PER_MINUTE
               value: {{ .Values.rateLimitPerMinute | quote }}
+            - name: LOBBY_TTL_DAYS
+              value: {{ .Values.lobbyTtlDays | quote }}
+            - name: ROOM_CREATES_PER_HOUR
+              value: {{ .Values.roomCreatesPerHour | quote }}
+            - name: MAX_DB_BYTES
+              value: {{ .Values.maxDbBytes | int64 | quote }}
+            - name: COMMAND_HISTORY_PER_SEAT
+              value: {{ .Values.commandHistoryPerSeat | quote }}
+            - name: TRUST_PROXY
+              value: {{ .Values.trustProxy | quote }}
           startupProbe:
             httpGet: {path: /healthz, port: http}
             periodSeconds: 2

@@ -57,4 +57,7 @@ assert.match(gitops, /prometheus.io\/port: "3000"/);
 assert.match(render([origin, 'scheduling.nodeSelector.tier=fallback'], true), /nodeSelector:\s+tier: fallback/);
 render([origin, 'images.app.digest=not-a-digest'], false);
 render([origin, 'mode=blue-green'], false);
+render([origin, 'trustProxy=cloudflare'], false);
+render([origin, 'trustProxy=proxy'], false);
+assert.match(render([origin, 'trustProxy=cloudflare', 'networkPolicy.externallyManaged=true'], true), /name: TRUST_PROXY\s+value: "cloudflare"/);
 console.log('Helm rendering and unsafe configuration rejection checks passed.');

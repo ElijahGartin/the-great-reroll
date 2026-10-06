@@ -14,6 +14,14 @@ maxRooms: 1000
 maxCommandsPerRoom: 20000
 maxBodyBytes: 16384
 rateLimitPerMinute: 3600
+lobbyTtlDays: 7
+roomCreatesPerHour: 20
+# Refuse new rooms/actions above this many live database bytes; keep below the PVC size.
+maxDbBytes: 2147483648
+commandHistoryPerSeat: 16
+# "cloudflare" keys rate limits on CF-Connecting-IP. Set it only when NetworkPolicy
+# admits the Cloudflare tunnel connector as the sole client of the HTTP port.
+trustProxy: ""
 persistence:
   existingClaim: ""
   size: 5Gi
@@ -36,6 +44,8 @@ ingress:
   annotations: {}
 networkPolicy:
   enabled: false
+  # Set true when the environment supplies an equivalent policy (required by trustProxy).
+  externallyManaged: false
   # Both selectors apply to the same peer. Set actual controller labels.
   ingressNamespaceLabels: {}
   ingressPodLabels: {}

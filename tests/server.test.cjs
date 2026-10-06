@@ -21,6 +21,7 @@ async function fixture(t, options = {}) {
   return {
     dir,
     get store() { return app.store; },
+    get port() { return app.server.address().port; },
     async restart() { await app.close(); app = createApp({ dataDir: dir, game, rateLimit: 10000, ...options }); await listen(); },
     async request(route, { method = 'GET', token, body, headers = {}, raw } = {}) {
       const response = await fetch(`http://127.0.0.1:${app.server.address().port}${route}`, { method, headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, body: raw ?? (body === undefined ? undefined : JSON.stringify(body)) });
@@ -302,4 +303,104 @@ test('metrics expose fixed operational gauges without private room data', async 
   assert.equal((await f.request('/metrics', { method: 'POST' })).status, 405);
   f.store.healthy = () => false;
   assert.match((await f.request('/metrics')).data, /^war_table_ready 0$/m);
+});
+
+function rawGet(f, rawPath) {
+  return new Promise((resolve, reject) => {
+    const req = require('node:http').request({ host: '127.0.0.1', port: f.port, path: rawPath, method: 'GET' }, res => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+    req.on('error', reject); req.end();
+  });
+}
+
+test('non-canonical paths cannot reach operational endpoints through a path-routing proxy', async t => {
+  const f = await fixture(t);
+  assert.equal(await rawGet(f, '/metrics'), 200);
+  for (const route of ['/api/rooms/%2e%2e/%2e%2e/metrics', '/js/%2e%2e/healthz', '/js/../healthz', '/api/rooms/%2E%2E/readyz', '/js/.%2e/readyz', '/assets/..%2fserver/server.cjs', '/js/./online.js', '//healthz'])
+    assert.equal(await rawGet(f, route), 404, route);
+});
+
+test('trusted Cloudflare client IPs get separate rate and room-creation budgets', async t => {
+  const f = await fixture(t, { rateLimit: 1, trustProxy: 'cloudflare' }); const host = await create(f);
+  const read = ip => f.request(`/api/rooms/${host.room.code}`, { token: host.token, headers: { 'CF-Connecting-IP': ip } });
+  assert.equal((await read('198.51.100.1')).status, 200);
+  assert.equal((await read('198.51.100.1')).status, 429);
+  assert.equal((await read('198.51.100.2')).status, 200);
+  const limited = await fixture(t, { createLimit: 2 });
+  await create(limited); await create(limited, 'Second');
+  assert.equal((await limited.request('/api/rooms', { method: 'POST', body: { name: 'Third', mode: 'draft', config: {} } })).status, 429);
+  assert.throws(() => createApp({ dataDir: f.dir, trustProxy: 'any' }), /TRUST_PROXY/);
+});
+
+test('replay history is bounded per seat and storage exhaustion refuses new writes', async t => {
+  const f = await fixture(t, { commandHistory: 2, maxCommands: 10 }); const host = await create(f);
+  let version = host.room.version;
+  for (let i = 0; i < 5; i++) { const r = await action(f, host, 'ready', { ready: i % 2 === 0 }, version); assert.equal(r.status, 200); version = r.data.room.version; }
+  assert.equal(f.store.commandCount(host.room.code), 2);
+  for (let i = 0; i < 5; i++) { const r = await action(f, host, 'ready', { ready: true }, version); assert.equal(r.status, 200); version = r.data.room.version; }
+  assert.equal((await action(f, host, 'ready', { ready: false }, version)).status, 409, 'action limit counts trimmed commands');
+  const full = await fixture(t, { maxDbBytes: 1 });
+  assert.equal((await full.request('/api/rooms', { method: 'POST', body: { name: 'Host', mode: 'draft', config: {} } })).status, 507);
+});
+
+test('lobbies expire sooner than started games', async t => {
+  const time = 1000; const f = await fixture(t, { now: () => time, roomTtlDays: 30, lobbyTtlDays: 1 }); const host = await create(f);
+  assert.equal(host.room.expiresAt, 1000 + 86400000);
+  await action(f, host, 'ready', { ready: true }, 1);
+  const started = await action(f, host, 'start', {}, 2);
+  assert.equal(started.data.room.expiresAt, 1000 + 30 * 86400000);
+});
+
+test('guest names reject invisible formatting and compatibility look-alikes', async t => {
+  const f = await fixture(t); const host = await create(f, 'Alice');
+  for (const name of ['Al​ice', '‮ecilA', 'Bob­']) assert.equal((await f.request(`/api/rooms/${host.room.code}/join`, { method: 'POST', body: { name } })).status, 400, JSON.stringify(name));
+  assert.equal((await f.request(`/api/rooms/${host.room.code}/join`, { method: 'POST', body: { name: 'Ａlice' } })).status, 409);
+});
+
+test('Deal Everyone seals other players’ defense allocations until all are locked', async t => {
+  const f = await fixture(t, { game: require('../server/game.cjs') });
+  let { room, seats } = await realRoom(f, 'deal', { budget: 50, attempts: 1 });
+  const first = await action(f, seats[0], 'defense', { allocations: [7, 3, 0] }, room.version); assert.equal(first.status, 200);
+  assert.deepEqual(first.data.room.game.submissions[seats[0].participantId], [7, 3, 0]);
+  const other = await f.request(`/api/rooms/${room.code}`, { token: seats[1].token });
+  assert.equal(other.data.room.game.submissions[seats[0].participantId], true);
+  assert.ok(!JSON.stringify(other.data).includes('[7,3,0]'));
+  room = first.data.room;
+  for (const seat of seats.slice(1)) { const r = await action(f, seat, 'defense', { allocations: [0, 0, 0] }, room.version); assert.equal(r.status, 200); room = r.data.room; }
+  assert.equal(room.game.phase, 'steal');
+  assert.deepEqual(room.game.players.find(p => p.id === seats[0].participantId).defense, [7, 3, 0]);
+});
+
+test('IPv6 clients share limits per /64 and rejected room requests do not spend the creation quota', async t => {
+  const f = await fixture(t, { rateLimit: 1, trustProxy: 'cloudflare', createLimit: 1 });
+  const post = (ip, body) => f.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body });
+  assert.equal((await post('2001:db8:1:2::5', { name: '', mode: 'draft', config: {} })).status, 400);
+  assert.equal((await post('2001:db8:1:2:ffff::9', { name: 'Host', mode: 'draft', config: {} })).status, 429, 'same /64 shares the request budget');
+  assert.equal((await post('2001:db8:1:3::5', { name: 'Host', mode: 'draft', config: {} })).status, 201, 'another /64 is separate');
+  const quota = await fixture(t, { trustProxy: 'cloudflare', createLimit: 1 });
+  const create = (ip, name) => quota.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: { name, mode: 'draft', config: {} } });
+  assert.equal((await create('203.0.113.7', '')).status, 400);
+  assert.equal((await create('203.0.113.7', 'Host')).status, 201, 'invalid request did not spend the quota');
+  assert.equal((await create('203.0.113.7', 'Again')).status, 429);
+});
+
+test('stored replays are redacted for the requesting seat', async t => {
+  const f = await fixture(t, { game: require('../server/game.cjs') });
+  let { room, seats } = await realRoom(f, 'deal', { budget: 50, attempts: 1 });
+  const first = await action(f, seats[0], 'defense', { allocations: [7, 3, 0] }, room.version); room = first.data.room;
+  const id = 'legacy-unredacted-response';
+  const legacy = { ...room, game: { ...room.game, submissions: { [seats[0].participantId]: [7, 3, 0], [seats[1].participantId]: [9, 9, 9] } } };
+  f.store.record(room.code, seats[1].participantId, id, JSON.stringify({ id, version: room.version, type: 'defense', payload: { allocations: [9, 9, 9] } }), { room: legacy, participantId: seats[1].participantId });
+  const replay = await action(f, seats[1], 'defense', { allocations: [9, 9, 9] }, room.version, id);
+  assert.equal(replay.status, 200);
+  assert.equal(replay.data.room.game.submissions[seats[0].participantId], true);
+  assert.deepEqual(replay.data.room.game.submissions[seats[1].participantId], [9, 9, 9]);
+});
+
+test('room creation that fails for capacity does not spend the creation quota', async t => {
+  const f = await fixture(t, { trustProxy: 'cloudflare', createLimit: 1, maxRooms: 1 });
+  const create = (ip, name) => f.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': ip }, body: { name, mode: 'draft', config: {} } });
+  assert.equal((await create('203.0.113.1', 'Host')).status, 201);
+  for (let i = 0; i < 3; i++) assert.equal((await create('203.0.113.2', 'Later')).status, 503, `attempt ${i}`);
+  const full = await fixture(t, { trustProxy: 'cloudflare', createLimit: 1, maxDbBytes: 1 });
+  for (let i = 0; i < 2; i++) assert.equal((await full.request('/api/rooms', { method: 'POST', headers: { 'CF-Connecting-IP': '203.0.113.3' }, body: { name: 'Host', mode: 'draft', config: {} } })).status, 507);
 });

@@ -234,7 +234,9 @@
     for (const [index, player] of game.players.entries()) {
       html += `<div class="panel"><h2>${esc(player.name)}${index === ownIndex ? ' · You' : ''}</h2><p>Attack reserve: ${player.reserve}${game.submissions?.[player.id] ? ' · Defense locked' : ''}</p><div class="cards">`;
       html += player.hand.map((card,slot) => {
-        let body = `<p>Defense: ${game.submissions?.[player.id]?.[slot] ?? player.defense[slot]}</p>`;
+        // The server seals other players' allocations until every defense locks.
+        const defense = game.phase === 'defense' && index !== ownIndex ? (game.submissions?.[player.id] ? 'Sealed' : 'Pending') : game.submissions?.[player.id]?.[slot] ?? player.defense[slot];
+        let body = `<p>Defense: ${defense}</p>`;
         if (index === ownIndex && game.phase === 'defense' && !submitted) body += `<label>Defense points<input id="defense-${slot}" type="number" value="0" min="0" max="${game.budget}"${canPlay() ? '' : ' disabled'}></label>`;
         if (game.phase === 'choose' && index === ownIndex && player.choice === null) body += button('Keep this character','choose',{slot},!canPlay());
         if (player.choice === slot) body += '<p class="pill">Final selection</p>';
