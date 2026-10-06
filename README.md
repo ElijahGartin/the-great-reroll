@@ -44,6 +44,7 @@ The deployment runs **one replica** with a persistent volume; upgrades have a br
 ```sh
 npm run check       # JavaScript syntax, including browser data modules
 npm test            # game rules, HTTP authorization/persistence, UI retries, backups
+npm run qualify:production # isolated load and fresh-database recovery evidence
 npm run check:chart # requires Helm; render and reject unsafe/invalid configurations
 ```
 
@@ -69,4 +70,4 @@ The container's Content Security Policy currently blocks the external Umami scri
 
 Jenkins produces signed multi-architecture images, an OCI Helm chart, SBOMs, and a verified release record. Environment changes enter `platform-state` through a reviewed pull request and are reconciled by Argo CD. See [Platform delivery](docs/platform-delivery.md).
 
-This repository contains a deployment package, not credentials or configuration for a particular cluster. Supply your registry image, HTTPS hostname/TLS Secret, and compatible storage class through your deployment process. See the [verification record](docs/verification.md) for completed checks and environment-specific checks still required.
+This repository contains a deployment package, not credentials or configuration for a particular cluster. Supply your registry image, HTTPS hostname/TLS Secret, and compatible storage class through your deployment process. See [production qualification](docs/production-qualification.md) for repeatable local evidence and remaining launch gates, and the [verification record](docs/verification.md) for completed checks and environment-specific checks still required.
