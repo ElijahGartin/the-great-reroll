@@ -15,8 +15,12 @@ cannot protect a signing key from an attacker allowed to rewrite the Jenkinsfile
 
 The platform agent supplies:
 
-- `REGISTRY` and matching `CI_REGISTRY`, with `CI_REGISTRY_INSECURE=true` only for a
-  platform-approved plain HTTP registry.
+- `REGISTRY` and matching `CI_REGISTRY`: the registry's HTTPS host (on pi-lab,
+  `zot.pi-lab.thunderrock.dev`). Registry access is HTTPS-only with system trust
+  (platform-state#199). The release client follows no redirect and ignores
+  environment proxies. The release refuses to start if `CI_REGISTRY_INSECURE`,
+  `TRIVY_INSECURE`, `TRIVY_NON_SSL`, `SYFT_REGISTRY_INSECURE_USE_HTTP` or
+  `SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY` is set.
 - `BUILDKIT_AMD64_ADDR`, `BUILDKIT_AMD64_NAME`, `BUILDKIT_ARM64_ADDR`, and
   `BUILDKIT_ARM64_NAME` for remote BuildKit addresses and TLS server names.
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`

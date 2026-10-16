@@ -96,7 +96,7 @@ class DeliveryTests(unittest.TestCase):
     def test_release_manifest_not_written_on_failed_signature_verification(self):
         with patch.object(delivery, 'run', side_effect=subprocess.CalledProcessError(1, 'cosign')):
             with self.assertRaises(subprocess.CalledProcessError):
-                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json', type('Registry', (), {'http': True})(), {})
+                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json', {})
 
     def test_each_required_sbom_must_be_present(self):
         kind = 'https://spdx.dev/Document'
@@ -127,9 +127,9 @@ class DeliveryTests(unittest.TestCase):
                 response.headers = {'Content-Type': delivery.MEDIA,
                                     'Docker-Content-Digest': 'sha256:' + hashlib.sha256(body).hexdigest()}
                 return response
-            with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}), \
-                    patch.object(delivery.urllib.request, 'urlopen', side_effect=respond):
+            with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}):
                 registry = delivery.Registry()
+            with patch.object(registry.opener, 'open', side_effect=respond):
                 if readback == submitted:
                     self.assertEqual(registry.manifest('app', 'tag', submitted)[0],
                                      'sha256:' + hashlib.sha256(submitted).hexdigest())
@@ -138,6 +138,51 @@ class DeliveryTests(unittest.TestCase):
                         registry.manifest('app', 'tag', submitted)
             self.assertEqual([call.get_method() for call in calls], ['PUT', 'GET'])
             self.assertEqual(calls[0].data, submitted)
+            self.assertTrue(all(call.full_url.startswith('https://registry.example/v2/') for call in calls))
+
+    def test_plain_http_and_skip_verify_switches_are_refused(self):
+        for name in delivery.INSECURE_ENV:
+            for value in ('true', '1'):
+                env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example', name: value}
+                with self.subTest(name=name, value=value), patch.dict(os.environ, env), \
+                        self.assertRaisesRegex(ValueError, 'HTTPS-only'):
+                    delivery.Registry()
+        for value in ('', 'false'):
+            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example', 'CI_REGISTRY_INSECURE': value}
+            with patch.dict(os.environ, env):
+                self.assertEqual(delivery.Registry().base, 'https://registry.example')
+
+    def test_registry_client_verifies_tls_ignores_proxies_and_refuses_redirects(self):
+        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+               'HTTPS_PROXY': 'http://proxy.example:3128'}
+        with patch.dict(os.environ, env):
+            registry = delivery.Registry()
+        handlers = {type(h): h for h in registry.opener.handlers}
+        context = handlers[delivery.urllib.request.HTTPSHandler]._context
+        self.assertEqual(context.verify_mode, delivery.ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        # HTTPS_PROXY is set, yet no proxy handler was installed from the environment.
+        self.assertNotIn(delivery.urllib.request.ProxyHandler, handlers)
+        self.assertNotIn(delivery.urllib.request.HTTPRedirectHandler, handlers)
+        request = delivery.urllib.request.Request('https://registry.example/v2/app/manifests/tag')
+        for target in ('https://elsewhere.example/v2/app/manifests/tag', 'http://registry.example/v2/app/manifests/tag'):
+            with self.subTest(target=target), self.assertRaises(delivery.urllib.error.HTTPError):
+                handlers[delivery.RefuseRedirect].redirect_request(request, None, 307, 'Temporary Redirect',
+                                                                   {'Location': target}, target)
+
+    def test_signing_and_verification_never_allow_plain_http(self):
+        calls = []
+        with patch.object(delivery, 'run', side_effect=lambda *args, **kwargs: calls.append(args) or ''), \
+                patch.object(delivery, 'verify_statements'), patch.object(delivery.Path, 'read_text', return_value='{}'):
+            delivery.sign_and_verify('registry.example/app@sha256:' + 'a' * 64, ['sbom.json'], 'predicate.json', {})
+        self.assertTrue(calls)
+        self.assertFalse([args for args in calls if '--allow-http-registry' in args])
+
+    def test_release_script_has_no_plain_http_transport(self):
+        source = (ROOT / 'ci/release.py').read_text()
+        for flag in ('--plain-http', 'registry.insecure', '--allow-http-registry', "'http://", 'urlopen('):
+            with self.subTest(flag=flag):
+                self.assertNotIn(flag, source)
 
 
 if __name__ == '__main__':
