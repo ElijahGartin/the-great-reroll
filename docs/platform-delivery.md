@@ -20,7 +20,8 @@ The platform agent supplies:
   (platform-state#199). The release client follows no redirect and ignores
   environment proxies. The release refuses to start if `CI_REGISTRY_INSECURE`,
   `TRIVY_INSECURE`, `TRIVY_NON_SSL`, `SYFT_REGISTRY_INSECURE_USE_HTTP` or
-  `SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY` is set.
+  `SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY` is present with any value, even
+  empty or `false`: delete them from the pod template rather than setting them.
 - `BUILDKIT_AMD64_ADDR`, `BUILDKIT_AMD64_NAME`, `BUILDKIT_ARM64_ADDR`, and
   `BUILDKIT_ARM64_NAME` for remote BuildKit addresses and TLS server names.
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`

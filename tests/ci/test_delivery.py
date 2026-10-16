@@ -140,17 +140,16 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(calls[0].data, submitted)
             self.assertTrue(all(call.full_url.startswith('https://registry.example/v2/') for call in calls))
 
-    def test_plain_http_and_skip_verify_switches_are_refused(self):
+    def test_plain_http_and_skip_verify_switches_are_refused_whatever_their_value(self):
+        base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}
+        # Trivy enables insecure mode for any non-empty TRIVY_NON_SSL, "false" included.
         for name in delivery.INSECURE_ENV:
-            for value in ('true', '1'):
-                env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example', name: value}
-                with self.subTest(name=name, value=value), patch.dict(os.environ, env), \
+            for value in ('1', 'true', 'TRUE', ' yes ', 'false', 'FALSE', ' false ', 'false-ish', '0', ''):
+                with self.subTest(name=name, value=value), patch.dict(os.environ, {**base, name: value}, clear=True), \
                         self.assertRaisesRegex(ValueError, 'HTTPS-only'):
                     delivery.Registry()
-        for value in ('', 'false'):
-            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example', 'CI_REGISTRY_INSECURE': value}
-            with patch.dict(os.environ, env):
-                self.assertEqual(delivery.Registry().base, 'https://registry.example')
+        with patch.dict(os.environ, base, clear=True):
+            self.assertEqual(delivery.Registry().base, 'https://registry.example')
 
     def test_registry_client_verifies_tls_ignores_proxies_and_refuses_redirects(self):
         env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',

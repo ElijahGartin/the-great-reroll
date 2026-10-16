@@ -19,9 +19,12 @@ DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
 MEDIA = 'application/vnd.oci.image.index.v1+json'
 ACCEPT = ', '.join([MEDIA, 'application/vnd.docker.distribution.manifest.list.v2+json',
                     'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json'])
-# Plain-HTTP and skip-verify switches the pipeline or its tools would honour.
-# Registry access is HTTPS-only (platform-state#199), so any of these set is a
-# misconfigured pod, not an option.
+# Every env switch that makes this script or a pinned tool use plain HTTP or
+# skip registry TLS verification (Trivy 0.71.0, Syft 1.18.1). Cosign, Helm
+# push and Buildx take these only as argv flags, which this script never
+# passes. Registry access is HTTPS-only (platform-state#199), so presence alone
+# is refused, whatever the value: the tools parse values differently, and
+# Trivy treats any non-empty TRIVY_NON_SSL, even "false", as insecure.
 INSECURE_ENV = ('CI_REGISTRY_INSECURE', 'TRIVY_INSECURE', 'TRIVY_NON_SSL',
                 'SYFT_REGISTRY_INSECURE_USE_HTTP', 'SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY')
 
@@ -68,9 +71,9 @@ class Registry:
             raise ValueError('REGISTRY must be a hostname with optional port')
         if os.environ['CI_REGISTRY'] != self.host:
             raise ValueError('REGISTRY and CI_REGISTRY must match')
-        insecure = [name for name in INSECURE_ENV if os.environ.get(name, '') not in ('', 'false')]
+        insecure = [name for name in INSECURE_ENV if name in os.environ]
         if insecure:
-            raise ValueError('Registry access is HTTPS-only; unset ' + ', '.join(insecure))
+            raise ValueError('Registry access is HTTPS-only; remove ' + ', '.join(insecure) + ' from the environment')
         self.base = 'https://' + self.host
         # System trust with hostname checks, no environment proxies, no redirects.
         self.opener = urllib.request.build_opener(
