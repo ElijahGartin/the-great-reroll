@@ -15,6 +15,7 @@ Short, repo-specific context for automated and human reviewers. Update this when
 
 ## High scrutiny
 
+- **Release signing (`ci/release.py`):** Cosign is **key-based** only (`--key /signing/cosign.key`, verify with pinned `ci/cosign.pub`; mounted public key must match `ci/cosign.pub` before sign). Not keyless or OIDC. **Accepted exception (through 2026-12-31):** `--insecure-ignore-tlog` on `cosign verify` / `verify-attestation` is allowed under this signing model because pi-lab has no private Rekor and private image signatures must not go to the public log (`--tlog-upload=false` on sign). Valid only with key-based signing plus the pinned public key; revisit when signing enforcement lands.
 - **Dual rule engines:** `server/game.cjs` requires `js/deal-engine.js` and `data/characters.js`. A browser-only change to deal logic without matching server behavior is a regression unless intentionally local-only.
 - **Production startup:** `NODE_ENV=production` requires HTTPS `PUBLIC_ORIGIN` (`server/server.cjs`). Do not weaken origin checks or `TRUST_PROXY` without reading `docs/kubernetes.md`.
 - **Guest identity:** `name()` in `server/server.cjs` (lines 67–72) rejects control/invisible/bidi characters and blocks duplicate names via NFKC normalization plus JavaScript `toLowerCase()`; it does **not** use full Unicode case folding or detect cross-script confusables (e.g. Latin vs Cyrillic look-alikes). Rate limits and room caps (`MAX_ROOMS`, `ROOM_CREATES_PER_HOUR`) are abuse controls, not product knobs.
