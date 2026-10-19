@@ -56,10 +56,7 @@ def resolve_zot_credentials(host):
         raise ValueError(
             'Zot registry credentials required: missing ' + str(config_path) + ' and ZOT_USER/ZOT_PASS unset')
     auths = json.loads(config_path.read_text()).get('auths', {})
-    for key in (host, 'http://' + host, 'https://' + host):
-        entry = auths.get(key)
-        if not entry:
-            continue
+    for entry in _docker_config_auth_entries(auths, host):
         if entry.get('auth'):
             decoded = base64.b64decode(entry['auth']).decode('utf-8')
             found_user, _, found_pass = decoded.partition(':')
@@ -69,6 +66,26 @@ def resolve_zot_credentials(host):
             return entry['username'], entry['password']
     raise ValueError(
         'Zot registry credentials required: no auths entry for ' + host + ' in ' + str(config_path))
+
+
+def _docker_config_auth_entries(auths, host):
+    """Yield auths entries for REGISTRY host, matching host:port and bare host keys."""
+    seen = set()
+    candidates = [host, 'http://' + host, 'https://' + host]
+    bare = host.rsplit(':', 1)[0] if ':' in host else host
+    if bare != host:
+        candidates.extend([bare, 'http://' + bare, 'https://' + bare])
+    for key in candidates:
+        if key in auths and key not in seen:
+            seen.add(key)
+            yield auths[key]
+    if ':' not in host:
+        for key, entry in auths.items():
+            normalized = key.split('://', 1)[-1]
+            if normalized == host or normalized.startswith(host + ':') or normalized.rsplit(':', 1)[0] == host:
+                if key not in seen:
+                    seen.add(key)
+                    yield entry
 
 
 def basic_auth_header(user, password):

@@ -8,8 +8,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('delivery', ROOT / 'ci/release.py')
@@ -167,6 +170,89 @@ class DeliveryTests(unittest.TestCase):
                 os.environ.pop('ZOT_PASS', None)
                 registry = delivery.Registry()
             self.assertEqual(registry._auth, delivery.basic_auth_header('push-user', 'push-pass'))
+
+    def test_registry_credentials_from_docker_config_host_port_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = base64.b64encode(b'zot-user:zot-pass').decode()
+            host_port = 'zot.harbor.svc.cluster.local:5000'
+            config = Path(tmp) / 'config.json'
+            config.write_text(json.dumps({'auths': {host_port: {'auth': auth}}}))
+            env = {'REGISTRY': host_port, 'CI_REGISTRY': host_port, 'DOCKER_CONFIG': tmp}
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop('ZOT_USER', None)
+                os.environ.pop('ZOT_PASS', None)
+                registry = delivery.Registry()
+            self.assertEqual(registry._auth, delivery.basic_auth_header('zot-user', 'zot-pass'))
+
+    def test_manifest_put_requires_basic_auth_against_local_registry(self):
+        user, password = 'ci-push', 'local-registry-secret'
+        stored = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def _authorized(self):
+                header = self.headers.get('Authorization', '')
+                return header == delivery.basic_auth_header(user, password)
+
+            def do_PUT(self):
+                if not self._authorized():
+                    self.send_response(401)
+                    self.end_headers()
+                    return
+                length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(length)
+                stored[self.path] = body
+                digest = 'sha256:' + hashlib.sha256(body).hexdigest()
+                self.send_response(201)
+                self.send_header('Docker-Content-Digest', digest)
+                self.send_header('Content-Type', delivery.MEDIA)
+                self.end_headers()
+
+            def do_GET(self):
+                if not self._authorized():
+                    self.send_response(401)
+                    self.end_headers()
+                    return
+                body = stored.get(self.path, b'')
+                digest = 'sha256:' + hashlib.sha256(body).hexdigest()
+                self.send_response(200)
+                self.send_header('Docker-Content-Digest', digest)
+                self.send_header('Content-Type', delivery.MEDIA)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                if body:
+                    self.wfile.write(body)
+
+        server = HTTPServer(('127.0.0.1', 0), Handler)
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host = f'127.0.0.1:{port}'
+        env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
+               'ZOT_USER': user, 'ZOT_PASS': password}
+        payload = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}'
+        try:
+            with patch.dict(os.environ, env, clear=False):
+                registry = delivery.Registry()
+                digest, _, _ = registry.manifest('app/test', 'tag', payload)
+            self.assertEqual(digest, 'sha256:' + hashlib.sha256(payload).hexdigest())
+
+            registry = delivery.Registry.__new__(delivery.Registry)
+            registry.host = host
+            registry.http = True
+            registry.base = 'http://' + host
+            registry._user = user
+            registry._password = password
+            registry._auth = 'Basic invalid'
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                registry.manifest('app/test', 'tag2', payload)
+            self.assertEqual(ctx.exception.code, 401)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_helm_push_logs_in_with_password_stdin_and_logout_on_failure(self):
         registry = delivery.Registry.__new__(delivery.Registry)
