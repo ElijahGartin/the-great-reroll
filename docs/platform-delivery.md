@@ -15,10 +15,11 @@ cannot protect a signing key from an attacker allowed to rewrite the Jenkinsfile
 
 The platform agent supplies:
 
-- `REGISTRY` and matching `CI_REGISTRY` (hostname only from these vars). Plain HTTP,
-  Helm `--plain-http`, BuildKit `registry.insecure`, and cosign `--allow-http-registry`
-  are enabled only when `CI_REGISTRY_INSECURE=true` (pi-lab Zot today). No TLS-verify
-  bypass in `ci/release.py`.
+- `REGISTRY` and matching `CI_REGISTRY` (hostname only from these vars). Each value is
+  validated with a single `re.fullmatch` (lowercase DNS host:port; in-cluster
+  `*.svc.cluster.local:5000` only when `CI_REGISTRY_INSECURE` is exactly `true`).
+  Plain HTTP, Helm `--plain-http`, BuildKit `registry.insecure`, and cosign
+  `--allow-http-registry` follow that flag. No TLS-verify bypass in `ci/release.py`.
 - `BUILDKIT_AMD64_ADDR`, `BUILDKIT_AMD64_NAME`, `BUILDKIT_ARM64_ADDR`, and
   `BUILDKIT_ARM64_NAME` for remote BuildKit addresses and TLS server names.
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`

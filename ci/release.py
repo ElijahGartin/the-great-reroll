@@ -129,47 +129,38 @@ def unpack_chart(source, destination):
 
 
 def ci_registry_insecure():
-    """Plain-HTTP transport only when CI_REGISTRY_INSECURE=true (platform-state#417 removes by 2026-10-30)."""
-    value = os.environ.get('CI_REGISTRY_INSECURE', '').strip().lower()
-    if value not in ('', 'false', 'true'):
-        raise ValueError('CI_REGISTRY_INSECURE must be true or false when set')
-    return value == 'true'
+    """Plain-HTTP only when CI_REGISTRY_INSECURE is exactly true (platform-state#417, due 2026-10-30)."""
+    return os.environ.get('CI_REGISTRY_INSECURE', '') == 'true'
 
 
-IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX = '.svc.cluster.local:5000'
-REGISTRY_HOSTPORT = re.compile(r'^[A-Za-z0-9.-]+(:[0-9]+)?$')
-REGISTRY_FORBIDDEN = ('/', '@', '#', '?', '://')
+INSECURE_CLUSTER_REGISTRY = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.svc\.cluster\.local:5000$')
+SECURE_REGISTRY = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$')
 
 
-def validate_registry_hostport(name, raw):
-    """Reject unsafe registry values before any credential lookup or network I/O."""
-    if not raw or raw.strip().lower() == 'null':
+def validate_registry_value(name, raw):
+    if not raw or raw == 'null':
         raise ValueError(
             f'{name} must be set to the platform Zot hostname (platform-state#415); '
             'empty and null are invalid')
-    if raw != raw.strip() or any(ch.isspace() for ch in raw):
-        raise ValueError(f'{name} must not contain whitespace')
-    for token in REGISTRY_FORBIDDEN:
-        if token in raw:
-            raise ValueError(f'{name} contains invalid registry characters')
-    if not REGISTRY_HOSTPORT.fullmatch(raw):
-        raise ValueError(f'{name} must be a hostname with optional port')
     return raw
 
 
 def validate_registry_environment():
-    """Fail before registry network I/O; host comes only from REGISTRY/CI_REGISTRY."""
-    registry = validate_registry_hostport('REGISTRY', os.environ.get('REGISTRY', ''))
-    ci_registry = validate_registry_hostport('CI_REGISTRY', os.environ.get('CI_REGISTRY', ''))
+    """Single re.fullmatch check per env var before credential lookup or network I/O."""
+    registry = validate_registry_value('REGISTRY', os.environ.get('REGISTRY', ''))
+    ci_registry = validate_registry_value('CI_REGISTRY', os.environ.get('CI_REGISTRY', ''))
     if registry != ci_registry:
         raise ValueError('REGISTRY and CI_REGISTRY must match')
     http = ci_registry_insecure()
-    if http:
-        for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
-            if not value.endswith(IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX):
+    pattern = INSECURE_CLUSTER_REGISTRY if http else SECURE_REGISTRY
+    for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
+        if not pattern.fullmatch(value):
+            if http:
                 raise ValueError(
-                    'CI_REGISTRY_INSECURE=true is only allowed when ' + name + ' ends with '
-                    + IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX)
+                    f'{name} must full-match the in-cluster Zot host:port when CI_REGISTRY_INSECURE is true')
+            raise ValueError(f'{name} must full-match the allowed registry host:port pattern')
     return registry, http
 
 
@@ -216,6 +207,14 @@ class Registry:
                 return
             raise
         raise ValueError(f'Refusing to overwrite existing tag {repo}:{ref}')
+
+
+def buildx_registry_push_output(registry):
+    """BuildKit push output; registry.insecure only when CI_REGISTRY_INSECURE validated true."""
+    output = 'type=registry,push=true'
+    if registry.http:
+        output += ',registry.insecure=true'
+    return output
 
 
 def helm_push_chart(registry, chart_package):
@@ -333,7 +332,7 @@ def main():
         builder = 'war-table-' + arch
         run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
             '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'])
-        output = 'type=registry,push=true' + (',registry.insecure=true' if registry.http else '')
+        output = buildx_registry_push_output(registry)
         metadata = f'dist/build-{arch}.json'
         Path('dist').mkdir(exist_ok=True)
         run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,

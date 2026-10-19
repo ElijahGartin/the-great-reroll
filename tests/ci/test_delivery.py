@@ -187,7 +187,8 @@ class DeliveryTests(unittest.TestCase):
             'evil.example/x.svc.cluster.local:5000',
             'user@evil.example:5000',
             'evil.example@x.svc.cluster.local:5000',
-            'http://x.svc.cluster.local:5000',
+            'HTTP://x.svc.cluster.local:5000',
+            'zot.harbor.svc.cluster.local:5000\n',
             'zot.harbor.svc.cluster.local:5000 ',
         )
         for host in reject:
@@ -200,13 +201,22 @@ class DeliveryTests(unittest.TestCase):
                     with self.assertRaises(ValueError):
                         delivery.Registry()
                     resolve.assert_not_called()
-        env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+        uppercase_cluster = 'ZOT.HARBOR.SVC.CLUSTER.LOCAL:5000'
+        env = {'REGISTRY': uppercase_cluster, 'CI_REGISTRY': uppercase_cluster,
+               'CI_REGISTRY_INSECURE': 'true', 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+        with patch.dict(os.environ, env, clear=False), \
+                patch.object(delivery, 'resolve_zot_credentials') as resolve:
+            with self.assertRaises(ValueError):
+                delivery.Registry()
+            resolve.assert_not_called()
+        env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host,
+               'CI_REGISTRY_INSECURE': 'true', 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
         with patch.dict(os.environ, env, clear=False):
             registry = delivery.Registry()
         self.assertEqual(registry.host, cluster_host)
+        self.assertTrue(registry.http)
 
     def test_ci_registry_insecure_only_for_in_cluster_zot_port(self):
-        suffix = delivery.IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX
         public_zot_host = 'zot.pi-lab.thunderrock.dev:5000'
         for path in ROOT.rglob('*'):
             if not path.is_file():
@@ -225,9 +235,8 @@ class DeliveryTests(unittest.TestCase):
                    'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
             with patch.dict(os.environ, env, clear=False), \
                     patch.object(delivery, 'resolve_zot_credentials') as resolve:
-                with self.assertRaises(ValueError) as ctx:
+                with self.assertRaises(ValueError):
                     delivery.Registry()
-                self.assertIn(suffix, str(ctx.exception))
                 resolve.assert_not_called()
 
         cluster_host = 'zot.harbor.svc.cluster.local:5000'
@@ -240,6 +249,53 @@ class DeliveryTests(unittest.TestCase):
                 registry = delivery.Registry()
             self.assertEqual(registry.http, expect_http)
             self.assertEqual(registry.base, ('http' if expect_http else 'https') + '://' + cluster_host)
+
+    def test_release_path_has_no_unconditional_insecure_transport(self):
+        release_files = (
+            ROOT / 'ci' / 'release.py',
+            ROOT / 'Jenkinsfile',
+            ROOT / 'ci' / 'trusted-main.sh',
+            ROOT / 'scripts' / 'ci' / 'provision-tools.sh',
+        )
+        transport_tokens = ('--plain-http', 'registry.insecure=true', '--allow-http-registry')
+        tls_bypass_tokens = ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
+                             '--allow-insecure-registry')
+        for path in release_files:
+            text = path.read_text(encoding='utf-8')
+            for token in tls_bypass_tokens:
+                self.assertNotIn(token, text, msg=str(path.relative_to(ROOT)))
+            if path.name != 'release.py':
+                for token in transport_tokens:
+                    self.assertNotIn(token, text, msg=str(path.relative_to(ROOT)))
+                continue
+            lines = text.splitlines()
+            for lineno, line in enumerate(lines, 1):
+                if line.strip().startswith('#') or 'insecure-ignore-tlog' in line:
+                    continue
+                if "'http://' +" in line or "'https://' +" in line:
+                    continue
+                prev_line = lines[lineno - 2] if lineno >= 2 else ''
+                for token in transport_tokens:
+                    if token in line and 'registry.http' not in line:
+                        if 'if registry.http' in prev_line or 'if registry.http' in line:
+                            continue
+                        self.fail(f'{path.relative_to(ROOT)}:{lineno}: ungated {token} in {line.strip()}')
+                if "('http' if self.http" in line or "'http' if self.http" in line:
+                    continue
+                if 'http://' in line and 'registry.http' not in line and 'self.http' not in line:
+                    self.fail(f'{path.relative_to(ROOT)}:{lineno}: ungated http:// in {line.strip()}')
+                if 'SYFT_REGISTRY_INSECURE_USE_HTTP' in line or 'TRIVY_INSECURE' in line:
+                    self.assertIn('registry.http', line,
+                                  msg=f'{path.relative_to(ROOT)}:{lineno}: {line.strip()}')
+        self.assertIn('def buildx_registry_push_output', (ROOT / 'ci' / 'release.py').read_text(encoding='utf-8'))
+
+    def test_buildx_registry_push_output_follows_registry_http(self):
+        registry = delivery.Registry.__new__(delivery.Registry)
+        registry.http = False
+        self.assertEqual(delivery.buildx_registry_push_output(registry), 'type=registry,push=true')
+        registry.http = True
+        self.assertEqual(delivery.buildx_registry_push_output(registry),
+                         'type=registry,push=true,registry.insecure=true')
 
     def test_insecure_transport_gated_on_ci_registry_insecure(self):
         release_source = (ROOT / 'ci/release.py').read_text()
