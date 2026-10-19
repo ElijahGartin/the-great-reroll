@@ -3,6 +3,7 @@
 import base64
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -10,6 +11,7 @@ import re
 import subprocess
 import shutil
 import tarfile
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -28,6 +30,83 @@ def run(*args, capture=False, env=None):
 def write(path, data):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(data, indent=2) + '\n')
+
+
+def _redact_secrets(text, password=None):
+    if not text:
+        return text
+    if password:
+        text = text.replace(password, '***')
+    return re.sub(r'Basic [A-Za-z0-9+/=]+', 'Basic ***', str(text))
+
+
+def resolve_zot_credentials(host):
+    """Registry push credentials from Jenkins env or DOCKER_CONFIG auths (platform-state#415)."""
+    user = os.environ.get('ZOT_USER')
+    password = os.environ.get('ZOT_PASS')
+    if user and password:
+        return user, password
+    docker_config = os.environ.get('DOCKER_CONFIG')
+    if not docker_config:
+        raise ValueError(
+            'Zot registry credentials required for authenticated push: set ZOT_USER and ZOT_PASS '
+            '(Jenkins usernamePassword credential zot-ci-push) or mount registry auths at '
+            'DOCKER_CONFIG/config.json for ' + host)
+    config_path = Path(docker_config) / 'config.json'
+    if not config_path.is_file():
+        raise ValueError(
+            'Zot registry credentials required: missing ' + str(config_path) + ' and ZOT_USER/ZOT_PASS unset')
+    auths = json.loads(config_path.read_text()).get('auths', {})
+    for entry in _docker_config_auth_entries(auths, host):
+        if entry.get('auth'):
+            decoded = base64.b64decode(entry['auth']).decode('utf-8')
+            found_user, _, found_pass = decoded.partition(':')
+            if found_user and found_pass:
+                return found_user, found_pass
+        if entry.get('username') and entry.get('password'):
+            return entry['username'], entry['password']
+    raise ValueError(
+        'Zot registry credentials required: no auths entry for ' + host + ' in ' + str(config_path))
+
+
+def _docker_config_auth_entries(auths, host):
+    """Yield auths entries for REGISTRY host, matching host:port and bare host keys."""
+    seen = set()
+    candidates = [host, 'http://' + host, 'https://' + host]
+    bare = host.rsplit(':', 1)[0] if ':' in host else host
+    if bare != host:
+        candidates.extend([bare, 'http://' + bare, 'https://' + bare])
+    for key in candidates:
+        if key in auths and key not in seen:
+            seen.add(key)
+            yield auths[key]
+    if ':' not in host:
+        for key, entry in auths.items():
+            normalized = key.split('://', 1)[-1]
+            if normalized == host or normalized.startswith(host + ':') or normalized.rsplit(':', 1)[0] == host:
+                if key not in seen:
+                    seen.add(key)
+                    yield entry
+
+
+def basic_auth_header(user, password):
+    return 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')
+
+
+def create_cosign_docker_config_dir(host, user, password):
+    """Ephemeral DOCKER_CONFIG for cosign registry auth (mode 0700, never logged)."""
+    directory = Path(tempfile.mkdtemp(prefix='cosign-docker-config-'))
+    os.chmod(directory, 0o700)
+    config_path = directory / 'config.json'
+    config_path.write_text(json.dumps({
+        'auths': {host: {'auth': base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')}},
+    }))
+    os.chmod(config_path, 0o600)
+    return directory
+
+
+def remove_cosign_docker_config_dir(directory):
+    shutil.rmtree(directory, ignore_errors=True)
 
 
 def unpack_chart(source, destination):
@@ -49,23 +128,63 @@ def unpack_chart(source, destination):
                     shutil.copyfileobj(data, output)
 
 
+def ci_registry_insecure():
+    """Plain-HTTP only when CI_REGISTRY_INSECURE is exactly true (platform-state#417, due 2026-10-30)."""
+    return os.environ.get('CI_REGISTRY_INSECURE', '') == 'true'
+
+
+INSECURE_CLUSTER_REGISTRY = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.svc\.cluster\.local:5000$')
+SECURE_REGISTRY = re.compile(
+    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$')
+
+
+def validate_registry_value(name, raw):
+    if not raw or raw == 'null':
+        raise ValueError(
+            f'{name} must be set to the platform Zot hostname (platform-state#415); '
+            'empty and null are invalid')
+    return raw
+
+
+def validate_registry_environment():
+    """Single re.fullmatch check per env var before credential lookup or network I/O."""
+    registry = validate_registry_value('REGISTRY', os.environ.get('REGISTRY', ''))
+    ci_registry = validate_registry_value('CI_REGISTRY', os.environ.get('CI_REGISTRY', ''))
+    if registry != ci_registry:
+        raise ValueError('REGISTRY and CI_REGISTRY must match')
+    http = ci_registry_insecure()
+    pattern = INSECURE_CLUSTER_REGISTRY if http else SECURE_REGISTRY
+    for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
+        if not pattern.fullmatch(value):
+            if http:
+                raise ValueError(
+                    f'{name} must full-match the in-cluster Zot host:port when CI_REGISTRY_INSECURE is true')
+            raise ValueError(f'{name} must full-match the allowed registry host:port pattern')
+    return registry, http
+
+
 class Registry:
     def __init__(self):
-        self.host = os.environ['REGISTRY']
-        if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', self.host):
-            raise ValueError('REGISTRY must be a hostname with optional port')
-        if os.environ['CI_REGISTRY'] != self.host:
-            raise ValueError('REGISTRY and CI_REGISTRY must match')
-        self.http = os.environ.get('CI_REGISTRY_INSECURE') == 'true'
+        self.host, self.http = validate_registry_environment()
         self.base = ('http' if self.http else 'https') + '://' + self.host
+        self._user, self._password = resolve_zot_credentials(self.host)
+        self._auth = basic_auth_header(self._user, self._password)
 
     def manifest(self, repo, ref, data=None):
-        headers = {'Accept': ACCEPT}
+        headers = {'Accept': ACCEPT, 'Authorization': self._auth}
         if data is not None:
             headers['Content-Type'] = MEDIA
         request = urllib.request.Request(f'{self.base}/v2/{repo}/manifests/{ref}', data=data,
                                          headers=headers, method='PUT' if data is not None else 'GET')
-        with urllib.request.urlopen(request, timeout=60) as response:
+        try:
+            response_ctx = urllib.request.urlopen(request, timeout=60)
+        except urllib.error.HTTPError as error:
+            body = _redact_secrets(error.read().decode('utf-8', errors='replace'), self._password)
+            raise urllib.error.HTTPError(
+                error.url, error.code, _redact_secrets(error.reason, self._password), error.headers,
+                io.BytesIO(body.encode())) from None
+        with response_ctx as response:
             body = response.read()
             if data is not None:
                 expected = 'sha256:' + hashlib.sha256(data).hexdigest()
@@ -88,6 +207,31 @@ class Registry:
                 return
             raise
         raise ValueError(f'Refusing to overwrite existing tag {repo}:{ref}')
+
+
+def buildx_registry_push_output(registry):
+    """BuildKit push output; registry.insecure only when CI_REGISTRY_INSECURE validated true."""
+    output = 'type=registry,push=true'
+    if registry.http:
+        output += ',registry.insecure=true'
+    return output
+
+
+def helm_push_chart(registry, chart_package):
+    host = registry.host
+    login = ['helm', 'registry', 'login', host, '--username', registry._user, '--password-stdin']
+    if registry.http:
+        login.append('--plain-http')
+    try:
+        subprocess.run(login, input=registry._password, text=True, check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        run('helm', 'push', chart_package, 'oci://' + host + '/platform/charts',
+            *(['--plain-http'] if registry.http else []))
+    except subprocess.CalledProcessError as error:
+        msg = _redact_secrets((error.stderr or '') + (error.stdout or ''), registry._password)
+        raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
+    finally:
+        subprocess.run(['helm', 'registry', 'logout', host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def architecture_manifest(body, arch):
@@ -146,6 +290,7 @@ def verify_statements(output, ref, kind, expected):
 
 
 def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
+    # --allow-http-registry: plain HTTP only (pi-lab). --insecure-ignore-tlog is not TLS bypass.
     transport = ['--allow-http-registry'] if registry.http else []
     common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false', *transport]
     run('cosign', 'sign', *common, ref, env=signing_env)
@@ -153,9 +298,9 @@ def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
     for path in sbom_paths:
         run('cosign', 'attest', *common, '--type', 'spdxjson', '--predicate', path, ref, env=signing_env)
     verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog', *transport]
-    run('cosign', 'verify', *verify, ref)
+    run('cosign', 'verify', *verify, ref, env=signing_env)
     for kind, paths in [('https://slsa.dev/provenance/v1', [predicate]), ('https://spdx.dev/Document', sbom_paths)]:
-        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True)
+        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True, env=signing_env)
         verify_statements(output, ref, kind, [json.loads(Path(path).read_text()) for path in paths])
 
 
@@ -173,7 +318,7 @@ def main():
     chart_repo = 'platform/charts/war-table'
     registry.require_absent(repo, tag)
     registry.require_absent(chart_repo, version)
-    signing_env = dict(os.environ, COSIGN_PASSWORD=Path('/signing/password').read_text().rstrip('\n'))
+    cosign_password = Path('/signing/password').read_text().rstrip('\n')
     if Path('/signing/cosign.pub').read_bytes() != Path('ci/cosign.pub').read_bytes():
         raise ValueError('Mounted signing key does not match the reviewed application trust key')
     for key in ('/signing/cosign.key', '/signing/cosign.pub', '/certs/ca.crt', '/certs/tls.crt', '/certs/tls.key'):
@@ -187,7 +332,7 @@ def main():
         builder = 'war-table-' + arch
         run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
             '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'])
-        output = 'type=registry,push=true' + (',registry.insecure=true' if registry.http else '')
+        output = buildx_registry_push_output(registry)
         metadata = f'dist/build-{arch}.json'
         Path('dist').mkdir(exist_ok=True)
         run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,
@@ -226,8 +371,7 @@ def main():
     unpack_chart(f'dist/charts/war-table-{version}.tgz', 'dist/chart-source')
     chart_sbom = 'dist/security/sboms/chart.spdx.json'
     run('syft', 'dir:dist/chart-source', '-o', 'spdx-json=' + chart_sbom)
-    run('helm', 'push', f'dist/charts/war-table-{version}.tgz', 'oci://' + registry.host + '/platform/charts',
-        *(['--plain-http'] if registry.http else []))
+    helm_push_chart(registry, f'dist/charts/war-table-{version}.tgz')
     chart_digest, chart_body, _ = registry.manifest(chart_repo, version)
     verify_chart_content(chart_body, f'dist/charts/war-table-{version}.tgz')
     chart_ref = registry.host + '/' + chart_repo + '@' + chart_digest
@@ -239,12 +383,18 @@ def main():
         '--repo-root', '.', '--require-digest')
     predicate = 'dist/security/provenance.json'
     write(predicate, provenance(sha, os.environ.get('BUILD_TAG', 'war-table-' + build)))
-    sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
-    sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
-    # This file is intentionally the last operation and the only promotion input.
-    write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
-          'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
-          'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
+    cosign_docker_config = create_cosign_docker_config_dir(registry.host, registry._user, registry._password)
+    try:
+        signing_env = dict(os.environ, COSIGN_PASSWORD=cosign_password,
+                           DOCKER_CONFIG=str(cosign_docker_config))
+        sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
+        sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
+        # This file is intentionally the last operation and the only promotion input.
+        write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
+              'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
+              'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
+    finally:
+        remove_cosign_docker_config_dir(cosign_docker_config)
 
 
 if __name__ == '__main__':
