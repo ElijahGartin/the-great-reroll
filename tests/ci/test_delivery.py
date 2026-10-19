@@ -181,6 +181,30 @@ class DeliveryTests(unittest.TestCase):
                 self.assertIn('platform-state#415', str(ctx.exception))
                 resolve.assert_not_called()
 
+    def test_registry_rejects_unsafe_hostport_values(self):
+        cluster_host = 'zot.harbor.svc.cluster.local:5000'
+        reject = (
+            'evil.example/x.svc.cluster.local:5000',
+            'user@evil.example:5000',
+            'evil.example@x.svc.cluster.local:5000',
+            'http://x.svc.cluster.local:5000',
+            'zot.harbor.svc.cluster.local:5000 ',
+        )
+        for host in reject:
+            for insecure in ('true', 'false', None):
+                env = {'REGISTRY': host, 'CI_REGISTRY': host, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+                if insecure is not None:
+                    env['CI_REGISTRY_INSECURE'] = insecure
+                with patch.dict(os.environ, env, clear=False), \
+                        patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                    with self.assertRaises(ValueError):
+                        delivery.Registry()
+                    resolve.assert_not_called()
+        env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+        with patch.dict(os.environ, env, clear=False):
+            registry = delivery.Registry()
+        self.assertEqual(registry.host, cluster_host)
+
     def test_ci_registry_insecure_only_for_in_cluster_zot_port(self):
         suffix = delivery.IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX
         public_zot_host = 'zot.pi-lab.thunderrock.dev:5000'

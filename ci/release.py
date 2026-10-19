@@ -137,21 +137,32 @@ def ci_registry_insecure():
 
 
 IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX = '.svc.cluster.local:5000'
+REGISTRY_HOSTPORT = re.compile(r'^[A-Za-z0-9.-]+(:[0-9]+)?$')
+REGISTRY_FORBIDDEN = ('/', '@', '#', '?', '://')
+
+
+def validate_registry_hostport(name, raw):
+    """Reject unsafe registry values before any credential lookup or network I/O."""
+    if not raw or raw.strip().lower() == 'null':
+        raise ValueError(
+            f'{name} must be set to the platform Zot hostname (platform-state#415); '
+            'empty and null are invalid')
+    if raw != raw.strip() or any(ch.isspace() for ch in raw):
+        raise ValueError(f'{name} must not contain whitespace')
+    for token in REGISTRY_FORBIDDEN:
+        if token in raw:
+            raise ValueError(f'{name} contains invalid registry characters')
+    if not REGISTRY_HOSTPORT.fullmatch(raw):
+        raise ValueError(f'{name} must be a hostname with optional port')
+    return raw
 
 
 def validate_registry_environment():
     """Fail before registry network I/O; host comes only from REGISTRY/CI_REGISTRY."""
-    registry = os.environ.get('REGISTRY', '').strip()
-    ci_registry = os.environ.get('CI_REGISTRY', '').strip()
-    for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
-        if not value or value.lower() == 'null':
-            raise ValueError(
-                f'{name} must be set to the platform Zot hostname (platform-state#415); '
-                'empty and null are invalid')
+    registry = validate_registry_hostport('REGISTRY', os.environ.get('REGISTRY', ''))
+    ci_registry = validate_registry_hostport('CI_REGISTRY', os.environ.get('CI_REGISTRY', ''))
     if registry != ci_registry:
         raise ValueError('REGISTRY and CI_REGISTRY must match')
-    if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', registry):
-        raise ValueError('REGISTRY must be a hostname with optional port')
     http = ci_registry_insecure()
     if http:
         for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
