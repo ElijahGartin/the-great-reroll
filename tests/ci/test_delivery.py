@@ -171,6 +171,77 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 delivery.Registry()
 
+    def test_insecure_transport_gated_on_ci_registry_insecure(self):
+        release_source = (ROOT / 'ci/release.py').read_text()
+        for token in ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
+                      '--allow-insecure-registry'):
+            self.assertNotIn(token, release_source)
+        base_env = {'REGISTRY': 'registry.example:5000', 'CI_REGISTRY': 'registry.example:5000',
+                    'ZOT_USER': 'ci', 'ZOT_PASS': 'secret'}
+        helm_calls = []
+        cosign_calls = []
+
+        def record_helm_run(args, **kwargs):
+            helm_calls.append(list(args))
+            return subprocess.CompletedProcess(args, 0)
+
+        def record_cosign_run(*args, capture=False, env=None):
+            if args and args[0] == 'cosign':
+                cosign_calls.append(list(args))
+            return '[]' if capture else None
+
+        for insecure, expect_plain in (('true', True), ('false', False), (None, False)):
+            env = dict(base_env)
+            if insecure is not None:
+                env['CI_REGISTRY_INSECURE'] = insecure
+            else:
+                env.pop('CI_REGISTRY_INSECURE', None)
+            with patch.dict(os.environ, env, clear=False):
+                registry = delivery.Registry()
+            self.assertEqual(registry.http, expect_plain)
+            self.assertEqual(registry.base.startswith('http://'), expect_plain)
+            self.assertEqual(registry.base, ('http' if expect_plain else 'https') + '://registry.example:5000')
+
+            helm_calls.clear()
+            registry_http = delivery.Registry.__new__(delivery.Registry)
+            registry_http.host = registry.host
+            registry_http.http = registry.http
+            registry_http._user = 'ci'
+            registry_http._password = 'secret'
+            push_calls = []
+
+            def record_push(*args, **kwargs):
+                push_calls.append(list(args))
+
+            with patch.object(delivery.subprocess, 'run', side_effect=record_helm_run), \
+                    patch.object(delivery, 'run', side_effect=record_push):
+                delivery.helm_push_chart(registry_http, 'chart.tgz')
+            login = helm_calls[0]
+            if expect_plain:
+                self.assertIn('--plain-http', login)
+                self.assertIn('--plain-http', push_calls[0])
+            else:
+                self.assertNotIn('--plain-http', login)
+                self.assertNotIn('--plain-http', push_calls[0])
+
+            cosign_calls.clear()
+            predicate = delivery.provenance('abc', 'build-1')
+            with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+                json.dump(predicate, handle)
+                predicate_path = handle.name
+            try:
+                with patch.object(delivery, 'run', side_effect=record_cosign_run), \
+                        patch.object(delivery, 'verify_statements'):
+                    delivery.sign_and_verify('ref@sha256:' + 'a' * 64, [], predicate_path, registry, {})
+            finally:
+                Path(predicate_path).unlink(missing_ok=True)
+            joined = ' '.join(' '.join(cmd) for cmd in cosign_calls)
+            if expect_plain:
+                self.assertIn('--allow-http-registry', joined)
+            else:
+                self.assertNotIn('--allow-http-registry', joined)
+                self.assertNotIn('--plain-http', joined)
+
     def test_registry_publish_uses_put_and_binds_readback(self):
         submitted = b'{"schemaVersion":2}'
         secret = 'registry-push-secret'

@@ -128,14 +128,23 @@ def unpack_chart(source, destination):
                     shutil.copyfileobj(data, output)
 
 
+def ci_registry_insecure():
+    """Plain-HTTP / registry.insecure transport only when platform sets CI_REGISTRY_INSECURE=true."""
+    value = os.environ.get('CI_REGISTRY_INSECURE', '').strip().lower()
+    if value not in ('', 'false', 'true'):
+        raise ValueError('CI_REGISTRY_INSECURE must be true or false when set')
+    return value == 'true'
+
+
 class Registry:
     def __init__(self):
+        # Registry hostname comes only from the agent environment (platform-state pod template).
         self.host = os.environ['REGISTRY']
         if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', self.host):
             raise ValueError('REGISTRY must be a hostname with optional port')
         if os.environ['CI_REGISTRY'] != self.host:
             raise ValueError('REGISTRY and CI_REGISTRY must match')
-        self.http = os.environ.get('CI_REGISTRY_INSECURE') == 'true'
+        self.http = ci_registry_insecure()
         self.base = ('http' if self.http else 'https') + '://' + self.host
         self._user, self._password = resolve_zot_credentials(self.host)
         self._auth = basic_auth_header(self._user, self._password)
@@ -251,6 +260,7 @@ def verify_statements(output, ref, kind, expected):
 
 
 def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
+    # --allow-http-registry: plain HTTP only (pi-lab). --insecure-ignore-tlog is not TLS bypass.
     transport = ['--allow-http-registry'] if registry.http else []
     common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false', *transport]
     run('cosign', 'sign', *common, ref, env=signing_env)
