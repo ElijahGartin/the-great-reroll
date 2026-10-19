@@ -34,3 +34,9 @@ Pi-lab-only runtime assumptions, or auto-sync changes for environments whose
 chart artifacts, image digests, runtime Secrets, storage classes, or dependency
 endpoints do not exist.
 <!-- END MANAGED APPLICATION CONTRACT -->
+
+## Code review context (fork)
+
+Automated and human reviewers (including Codex) should read and apply
+[`REVIEW.md`](./REVIEW.md) for War Table–specific failure modes, high-scrutiny
+paths, and recurring themes. Claude-specific workflow lives in [`CLAUDE.md`](./CLAUDE.md).
