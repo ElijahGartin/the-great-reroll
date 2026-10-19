@@ -183,7 +183,20 @@ class DeliveryTests(unittest.TestCase):
 
     def test_ci_registry_insecure_only_for_in_cluster_zot_port(self):
         suffix = delivery.IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX
-        for host in ('registry.example.com:5000', 'foo.svc.cluster.local:443'):
+        public_zot_host = 'zot.pi-lab.thunderrock.dev:5000'
+        for path in ROOT.rglob('*'):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(ROOT)
+            if rel.parts and rel.parts[0] == 'tests':
+                continue
+            try:
+                text = path.read_text(encoding='utf-8')
+            except (UnicodeDecodeError, OSError):
+                continue
+            self.assertNotIn(public_zot_host, text, msg=str(rel))
+
+        for host in ('registry.example.com:5000', 'foo.svc.cluster.local:443', public_zot_host):
             env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
                    'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
             with patch.dict(os.environ, env, clear=False), \

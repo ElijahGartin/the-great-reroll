@@ -153,10 +153,12 @@ def validate_registry_environment():
     if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', registry):
         raise ValueError('REGISTRY must be a hostname with optional port')
     http = ci_registry_insecure()
-    if http and not registry.endswith(IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX):
-        raise ValueError(
-            'CI_REGISTRY_INSECURE=true is only allowed when REGISTRY ends with '
-            + IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX)
+    if http:
+        for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
+            if not value.endswith(IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX):
+                raise ValueError(
+                    'CI_REGISTRY_INSECURE=true is only allowed when ' + name + ' ends with '
+                    + IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX)
     return registry, http
 
 
