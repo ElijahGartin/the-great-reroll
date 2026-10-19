@@ -24,11 +24,12 @@ The platform agent supplies:
 - Egress to public pinned tool downloads, vulnerability databases, source control,
   registry, and the two builders. Registry **push** uses the Jenkins
   `zot-ci-push` credential (`ZOT_USER` / `ZOT_PASS`) and/or the builder pod's
-  `DOCKER_CONFIG` mount (`/var/zot-docker-config/config.json`); see
-  [platform-state#415](https://github.com/ThunderRockTech/platform-state/pull/415).
-  BuildKit image pushes and cosign sign/attest/verify use the same pod
-  environment: cosign reads `DOCKER_CONFIG` for registry auth when pushing
-  signatures and attestations (no separate login step in `ci/release.py`).
+  optional `DOCKER_CONFIG` mount (`DOCKER_CONFIG=/var/zot-docker-config`,
+  secret key `.dockerconfigjson` at `config.json`); see
+  [platform-state#415](https://github.com/ThunderRockTech/platform-state/pull/415)
+  (`war-table-builder` `builder` container in `values/jenkins.yaml`). `ci/release.py`
+  builds a private temp `DOCKER_CONFIG` from the same resolved credentials for
+  cosign sign/attest/verify only; BuildKit pushes use the remote builder's mount.
 
 Delivery runs syntax checks, application tests, chart checks, CI failure-gate tests,
 Gitleaks, and `platformManagedAppContractValidation`. SHA256-pinned tools build

@@ -11,6 +11,7 @@ import re
 import subprocess
 import shutil
 import tarfile
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -90,6 +91,22 @@ def _docker_config_auth_entries(auths, host):
 
 def basic_auth_header(user, password):
     return 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')
+
+
+def create_cosign_docker_config_dir(host, user, password):
+    """Ephemeral DOCKER_CONFIG for cosign registry auth (mode 0700, never logged)."""
+    directory = Path(tempfile.mkdtemp(prefix='cosign-docker-config-'))
+    os.chmod(directory, 0o700)
+    config_path = directory / 'config.json'
+    config_path.write_text(json.dumps({
+        'auths': {host: {'auth': base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')}},
+    }))
+    os.chmod(config_path, 0o600)
+    return directory
+
+
+def remove_cosign_docker_config_dir(directory):
+    shutil.rmtree(directory, ignore_errors=True)
 
 
 def unpack_chart(source, destination):
@@ -241,9 +258,9 @@ def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
     for path in sbom_paths:
         run('cosign', 'attest', *common, '--type', 'spdxjson', '--predicate', path, ref, env=signing_env)
     verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog', *transport]
-    run('cosign', 'verify', *verify, ref)
+    run('cosign', 'verify', *verify, ref, env=signing_env)
     for kind, paths in [('https://slsa.dev/provenance/v1', [predicate]), ('https://spdx.dev/Document', sbom_paths)]:
-        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True)
+        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True, env=signing_env)
         verify_statements(output, ref, kind, [json.loads(Path(path).read_text()) for path in paths])
 
 
@@ -261,7 +278,7 @@ def main():
     chart_repo = 'platform/charts/war-table'
     registry.require_absent(repo, tag)
     registry.require_absent(chart_repo, version)
-    signing_env = dict(os.environ, COSIGN_PASSWORD=Path('/signing/password').read_text().rstrip('\n'))
+    cosign_password = Path('/signing/password').read_text().rstrip('\n')
     if Path('/signing/cosign.pub').read_bytes() != Path('ci/cosign.pub').read_bytes():
         raise ValueError('Mounted signing key does not match the reviewed application trust key')
     for key in ('/signing/cosign.key', '/signing/cosign.pub', '/certs/ca.crt', '/certs/tls.crt', '/certs/tls.key'):
@@ -326,12 +343,18 @@ def main():
         '--repo-root', '.', '--require-digest')
     predicate = 'dist/security/provenance.json'
     write(predicate, provenance(sha, os.environ.get('BUILD_TAG', 'war-table-' + build)))
-    sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
-    sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
-    # This file is intentionally the last operation and the only promotion input.
-    write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
-          'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
-          'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
+    cosign_docker_config = create_cosign_docker_config_dir(registry.host, registry._user, registry._password)
+    try:
+        signing_env = dict(os.environ, COSIGN_PASSWORD=cosign_password,
+                           DOCKER_CONFIG=str(cosign_docker_config))
+        sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
+        sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
+        # This file is intentionally the last operation and the only promotion input.
+        write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
+              'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
+              'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
+    finally:
+        remove_cosign_docker_config_dir(cosign_docker_config)
 
 
 if __name__ == '__main__':

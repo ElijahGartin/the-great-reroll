@@ -97,9 +97,61 @@ class DeliveryTests(unittest.TestCase):
             delivery.verify_statements('', ref, kind, [predicate])
 
     def test_release_manifest_not_written_on_failed_signature_verification(self):
+        env = {'DOCKER_CONFIG': '/tmp/cosign-docker-config-test'}
         with patch.object(delivery, 'run', side_effect=subprocess.CalledProcessError(1, 'cosign')):
             with self.assertRaises(subprocess.CalledProcessError):
-                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json', type('Registry', (), {'http': True})(), {})
+                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json',
+                                         type('Registry', (), {'http': True})(), env)
+
+    def test_cosign_docker_config_dir_auth_and_cleanup(self):
+        directory = delivery.create_cosign_docker_config_dir('registry.example:5000', 'push-user', 'push-pass')
+        config_path = Path(directory) / 'config.json'
+        self.assertTrue(config_path.is_file())
+        self.assertEqual(os.stat(directory).st_mode & 0o777, 0o700)
+        auth = json.loads(config_path.read_text())['auths']['registry.example:5000']['auth']
+        self.assertEqual(base64.b64decode(auth).decode(), 'push-user:push-pass')
+        delivery.remove_cosign_docker_config_dir(directory)
+        self.assertFalse(Path(directory).exists())
+
+    def test_sign_and_verify_passes_docker_config_to_all_cosign_calls(self):
+        docker_config = '/var/tmp/cosign-docker-config-unit-test'
+        signing_env = {'DOCKER_CONFIG': docker_config, 'COSIGN_PASSWORD': 'secret'}
+        captured = []
+        predicate = delivery.provenance('abc', 'build-1')
+
+        def fake_run(*args, capture=False, env=None):
+            if args and args[0] == 'cosign':
+                captured.append((args[1], (env or {}).get('DOCKER_CONFIG')))
+            return '[]' if capture else None
+
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+            json.dump(predicate, handle)
+            predicate_path = handle.name
+        try:
+            with patch.object(delivery, 'run', side_effect=fake_run), \
+                    patch.object(delivery, 'verify_statements'):
+                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], predicate_path,
+                                         type('Registry', (), {'http': True})(), signing_env)
+        finally:
+            Path(predicate_path).unlink(missing_ok=True)
+        self.assertGreaterEqual(len(captured), 4)
+        self.assertTrue(all(value == docker_config for _, value in captured))
+
+    def test_cosign_docker_config_removed_after_signing_finally(self):
+        directory = delivery.create_cosign_docker_config_dir('registry.example:5000', 'u', 'p')
+        path = str(directory)
+        seen = []
+
+        def record_sign(*_args, **_kwargs):
+            seen.append(Path(path).is_dir())
+
+        try:
+            with patch.object(delivery, 'sign_and_verify', side_effect=record_sign):
+                delivery.sign_and_verify('ref', [], 'pred', None, {'DOCKER_CONFIG': path})
+        finally:
+            delivery.remove_cosign_docker_config_dir(directory)
+        self.assertEqual(seen, [True])
+        self.assertFalse(Path(path).exists())
 
     def test_each_required_sbom_must_be_present(self):
         kind = 'https://spdx.dev/Document'
