@@ -129,22 +129,40 @@ def unpack_chart(source, destination):
 
 
 def ci_registry_insecure():
-    """Plain-HTTP / registry.insecure transport only when platform sets CI_REGISTRY_INSECURE=true."""
+    """Plain-HTTP transport only when CI_REGISTRY_INSECURE=true (platform-state#417 removes by 2026-10-30)."""
     value = os.environ.get('CI_REGISTRY_INSECURE', '').strip().lower()
     if value not in ('', 'false', 'true'):
         raise ValueError('CI_REGISTRY_INSECURE must be true or false when set')
     return value == 'true'
 
 
+TLS_REGISTRY_HOSTNAME = 'zot.pi-lab.thunderrock.dev'
+
+
+def validate_registry_environment():
+    """Fail before registry network I/O; host comes only from REGISTRY/CI_REGISTRY."""
+    registry = os.environ.get('REGISTRY', '').strip()
+    ci_registry = os.environ.get('CI_REGISTRY', '').strip()
+    for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
+        if not value or value.lower() == 'null':
+            raise ValueError(
+                f'{name} must be set to the platform Zot hostname (platform-state#415); '
+                'empty and null are invalid')
+    if registry != ci_registry:
+        raise ValueError('REGISTRY and CI_REGISTRY must match')
+    if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', registry):
+        raise ValueError('REGISTRY must be a hostname with optional port')
+    http = ci_registry_insecure()
+    hostname = registry.rsplit(':', 1)[0] if ':' in registry else registry
+    if http and hostname == TLS_REGISTRY_HOSTNAME:
+        raise ValueError(
+            'plain HTTP is not allowed against the TLS hostname ' + TLS_REGISTRY_HOSTNAME)
+    return registry, http
+
+
 class Registry:
     def __init__(self):
-        # Registry hostname comes only from the agent environment (platform-state pod template).
-        self.host = os.environ['REGISTRY']
-        if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', self.host):
-            raise ValueError('REGISTRY must be a hostname with optional port')
-        if os.environ['CI_REGISTRY'] != self.host:
-            raise ValueError('REGISTRY and CI_REGISTRY must match')
-        self.http = ci_registry_insecure()
+        self.host, self.http = validate_registry_environment()
         self.base = ('http' if self.http else 'https') + '://' + self.host
         self._user, self._password = resolve_zot_credentials(self.host)
         self._auth = basic_auth_header(self._user, self._password)

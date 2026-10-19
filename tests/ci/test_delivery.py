@@ -171,6 +171,27 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 delivery.Registry()
 
+    def test_registry_rejects_empty_or_null_hosts(self):
+        for registry, ci_registry in (('', ''), ('null', 'null'), ('registry.example', 'null')):
+            env = {'REGISTRY': registry, 'CI_REGISTRY': ci_registry, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+            with patch.dict(os.environ, env, clear=False), \
+                    patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                with self.assertRaises(ValueError) as ctx:
+                    delivery.Registry()
+                self.assertIn('platform-state#415', str(ctx.exception))
+                resolve.assert_not_called()
+
+    def test_registry_rejects_insecure_transport_on_tls_hostname(self):
+        host = delivery.TLS_REGISTRY_HOSTNAME + ':443'
+        env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
+               'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+        with patch.dict(os.environ, env, clear=False), \
+                patch.object(delivery, 'resolve_zot_credentials') as resolve:
+            with self.assertRaises(ValueError) as ctx:
+                delivery.Registry()
+            self.assertIn('plain HTTP is not allowed against the TLS hostname', str(ctx.exception))
+            resolve.assert_not_called()
+
     def test_insecure_transport_gated_on_ci_registry_insecure(self):
         release_source = (ROOT / 'ci/release.py').read_text()
         for token in ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
