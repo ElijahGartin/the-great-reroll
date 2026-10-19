@@ -22,9 +22,13 @@ The platform agent supplies:
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`
   for app-scoped signing. The password goes only into the cosign subprocess environment.
 - Egress to public pinned tool downloads, vulnerability databases, source control,
-  registry, and the two builders. Registry access currently uses the platform's
-  anonymous network-restricted profile; authenticated registries require explicit
-  credential integration before use.
+  registry, and the two builders. Registry **push** uses the Jenkins
+  `zot-ci-push` credential (`ZOT_USER` / `ZOT_PASS`) and/or the builder pod's
+  `DOCKER_CONFIG` mount (`/var/zot-docker-config/config.json`); see
+  [platform-state#415](https://github.com/ThunderRockTech/platform-state/pull/415).
+  BuildKit image pushes and cosign sign/attest/verify use the same pod
+  environment: cosign reads `DOCKER_CONFIG` for registry auth when pushing
+  signatures and attestations (no separate login step in `ci/release.py`).
 
 Delivery runs syntax checks, application tests, chart checks, CI failure-gate tests,
 Gitleaks, and `platformManagedAppContractValidation`. SHA256-pinned tools build

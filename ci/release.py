@@ -3,6 +3,7 @@
 import base64
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -28,6 +29,50 @@ def run(*args, capture=False, env=None):
 def write(path, data):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(data, indent=2) + '\n')
+
+
+def _redact_secrets(text, password=None):
+    if not text:
+        return text
+    if password:
+        text = text.replace(password, '***')
+    return re.sub(r'Basic [A-Za-z0-9+/=]+', 'Basic ***', str(text))
+
+
+def resolve_zot_credentials(host):
+    """Registry push credentials from Jenkins env or DOCKER_CONFIG auths (platform-state#415)."""
+    user = os.environ.get('ZOT_USER')
+    password = os.environ.get('ZOT_PASS')
+    if user and password:
+        return user, password
+    docker_config = os.environ.get('DOCKER_CONFIG')
+    if not docker_config:
+        raise ValueError(
+            'Zot registry credentials required for authenticated push: set ZOT_USER and ZOT_PASS '
+            '(Jenkins usernamePassword credential zot-ci-push) or mount registry auths at '
+            'DOCKER_CONFIG/config.json for ' + host)
+    config_path = Path(docker_config) / 'config.json'
+    if not config_path.is_file():
+        raise ValueError(
+            'Zot registry credentials required: missing ' + str(config_path) + ' and ZOT_USER/ZOT_PASS unset')
+    auths = json.loads(config_path.read_text()).get('auths', {})
+    for key in (host, 'http://' + host, 'https://' + host):
+        entry = auths.get(key)
+        if not entry:
+            continue
+        if entry.get('auth'):
+            decoded = base64.b64decode(entry['auth']).decode('utf-8')
+            found_user, _, found_pass = decoded.partition(':')
+            if found_user and found_pass:
+                return found_user, found_pass
+        if entry.get('username') and entry.get('password'):
+            return entry['username'], entry['password']
+    raise ValueError(
+        'Zot registry credentials required: no auths entry for ' + host + ' in ' + str(config_path))
+
+
+def basic_auth_header(user, password):
+    return 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')
 
 
 def unpack_chart(source, destination):
@@ -58,14 +103,23 @@ class Registry:
             raise ValueError('REGISTRY and CI_REGISTRY must match')
         self.http = os.environ.get('CI_REGISTRY_INSECURE') == 'true'
         self.base = ('http' if self.http else 'https') + '://' + self.host
+        self._user, self._password = resolve_zot_credentials(self.host)
+        self._auth = basic_auth_header(self._user, self._password)
 
     def manifest(self, repo, ref, data=None):
-        headers = {'Accept': ACCEPT}
+        headers = {'Accept': ACCEPT, 'Authorization': self._auth}
         if data is not None:
             headers['Content-Type'] = MEDIA
         request = urllib.request.Request(f'{self.base}/v2/{repo}/manifests/{ref}', data=data,
                                          headers=headers, method='PUT' if data is not None else 'GET')
-        with urllib.request.urlopen(request, timeout=60) as response:
+        try:
+            response_ctx = urllib.request.urlopen(request, timeout=60)
+        except urllib.error.HTTPError as error:
+            body = _redact_secrets(error.read().decode('utf-8', errors='replace'), self._password)
+            raise urllib.error.HTTPError(
+                error.url, error.code, _redact_secrets(error.reason, self._password), error.headers,
+                io.BytesIO(body.encode())) from None
+        with response_ctx as response:
             body = response.read()
             if data is not None:
                 expected = 'sha256:' + hashlib.sha256(data).hexdigest()
@@ -88,6 +142,23 @@ class Registry:
                 return
             raise
         raise ValueError(f'Refusing to overwrite existing tag {repo}:{ref}')
+
+
+def helm_push_chart(registry, chart_package):
+    host = registry.host
+    login = ['helm', 'registry', 'login', host, '--username', registry._user, '--password-stdin']
+    if registry.http:
+        login.append('--plain-http')
+    try:
+        subprocess.run(login, input=registry._password, text=True, check=True,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        run('helm', 'push', chart_package, 'oci://' + host + '/platform/charts',
+            *(['--plain-http'] if registry.http else []))
+    except subprocess.CalledProcessError as error:
+        msg = _redact_secrets((error.stderr or '') + (error.stdout or ''), registry._password)
+        raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
+    finally:
+        subprocess.run(['helm', 'registry', 'logout', host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
 def architecture_manifest(body, arch):
@@ -226,8 +297,7 @@ def main():
     unpack_chart(f'dist/charts/war-table-{version}.tgz', 'dist/chart-source')
     chart_sbom = 'dist/security/sboms/chart.spdx.json'
     run('syft', 'dir:dist/chart-source', '-o', 'spdx-json=' + chart_sbom)
-    run('helm', 'push', f'dist/charts/war-table-{version}.tgz', 'oci://' + registry.host + '/platform/charts',
-        *(['--plain-http'] if registry.http else []))
+    helm_push_chart(registry, f'dist/charts/war-table-{version}.tgz')
     chart_digest, chart_body, _ = registry.manifest(chart_repo, version)
     verify_chart_content(chart_body, f'dist/charts/war-table-{version}.tgz')
     chart_ref = registry.host + '/' + chart_repo + '@' + chart_digest

@@ -118,6 +118,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_registry_publish_uses_put_and_binds_readback(self):
         submitted = b'{"schemaVersion":2}'
+        secret = 'registry-push-secret'
         for readback in (submitted, b'{"schemaVersion":1}'):
             calls = []
             def respond(request, timeout):
@@ -127,7 +128,9 @@ class DeliveryTests(unittest.TestCase):
                 response.headers = {'Content-Type': delivery.MEDIA,
                                     'Docker-Content-Digest': 'sha256:' + hashlib.sha256(body).hexdigest()}
                 return response
-            with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}), \
+            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                   'ZOT_USER': 'ci-push', 'ZOT_PASS': secret}
+            with patch.dict(os.environ, env, clear=False), \
                     patch.object(delivery.urllib.request, 'urlopen', side_effect=respond):
                 registry = delivery.Registry()
                 if readback == submitted:
@@ -138,6 +141,57 @@ class DeliveryTests(unittest.TestCase):
                         registry.manifest('app', 'tag', submitted)
             self.assertEqual([call.get_method() for call in calls], ['PUT', 'GET'])
             self.assertEqual(calls[0].data, submitted)
+            expected_auth = delivery.basic_auth_header('ci-push', secret)
+            self.assertEqual(calls[0].get_header('Authorization'), expected_auth)
+            self.assertNotIn(secret, str(calls))
+
+    def test_registry_credentials_missing_fails_fast(self):
+        with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'},
+                        clear=False):
+            os.environ.pop('ZOT_USER', None)
+            os.environ.pop('ZOT_PASS', None)
+            os.environ.pop('DOCKER_CONFIG', None)
+            with self.assertRaises(ValueError) as ctx:
+                delivery.Registry()
+            self.assertIn('credentials required', str(ctx.exception).lower())
+
+    def test_registry_credentials_from_docker_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = base64.b64encode(b'push-user:push-pass').decode()
+            config = Path(tmp) / 'config.json'
+            config.write_text(json.dumps({'auths': {'registry.example': {'auth': auth}}}))
+            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                   'DOCKER_CONFIG': tmp}
+            with patch.dict(os.environ, env, clear=False):
+                os.environ.pop('ZOT_USER', None)
+                os.environ.pop('ZOT_PASS', None)
+                registry = delivery.Registry()
+            self.assertEqual(registry._auth, delivery.basic_auth_header('push-user', 'push-pass'))
+
+    def test_helm_push_logs_in_with_password_stdin_and_logout_on_failure(self):
+        registry = delivery.Registry.__new__(delivery.Registry)
+        registry.host = 'registry.example'
+        registry.http = True
+        registry._user = 'ci-push'
+        registry._password = 'helm-secret'
+        calls = []
+
+        def fake_run(args, **kwargs):
+            calls.append({'args': list(args), 'kwargs': dict(kwargs)})
+            return subprocess.CompletedProcess(args, 0)
+
+        def fail_push(*args, **kwargs):
+            raise subprocess.CalledProcessError(1, list(args), stderr='push failed with helm-secret')
+
+        with patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
+                patch.object(delivery, 'run', side_effect=fail_push):
+            with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                delivery.helm_push_chart(registry, 'dist/charts/war-table-1.tgz')
+        login = next(c for c in calls if c['args'][:3] == ['helm', 'registry', 'login'])
+        self.assertEqual(login['kwargs'].get('input'), 'helm-secret')
+        self.assertNotIn('helm-secret', login['args'])
+        self.assertTrue(any(c['args'][:3] == ['helm', 'registry', 'logout'] for c in calls))
+        self.assertNotIn('helm-secret', (ctx.exception.stderr or '') + str(ctx.exception.cmd))
 
 
 if __name__ == '__main__':
