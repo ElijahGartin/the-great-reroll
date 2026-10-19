@@ -209,8 +209,6 @@ class DeliveryTests(unittest.TestCase):
         for token in ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
                       '--allow-insecure-registry'):
             self.assertNotIn(token, release_source)
-        base_env = {'REGISTRY': 'registry.example:5000', 'CI_REGISTRY': 'registry.example:5000',
-                    'ZOT_USER': 'ci', 'ZOT_PASS': 'secret'}
         helm_calls = []
         cosign_calls = []
 
@@ -223,17 +221,21 @@ class DeliveryTests(unittest.TestCase):
                 cosign_calls.append(list(args))
             return '[]' if capture else None
 
-        for insecure, expect_plain in (('true', True), ('false', False), (None, False)):
-            env = dict(base_env)
+        cases = [
+            ('zot.harbor.svc.cluster.local:5000', 'true', True),
+            ('registry.example.com:5000', 'false', False),
+            ('registry.example.com:5000', None, False),
+        ]
+        for registry_host, insecure, expect_plain in cases:
+            env = {'REGISTRY': registry_host, 'CI_REGISTRY': registry_host,
+                   'ZOT_USER': 'ci', 'ZOT_PASS': 'secret'}
             if insecure is not None:
                 env['CI_REGISTRY_INSECURE'] = insecure
-            else:
-                env.pop('CI_REGISTRY_INSECURE', None)
             with patch.dict(os.environ, env, clear=False):
                 registry = delivery.Registry()
             self.assertEqual(registry.http, expect_plain)
             self.assertEqual(registry.base.startswith('http://'), expect_plain)
-            self.assertEqual(registry.base, ('http' if expect_plain else 'https') + '://registry.example:5000')
+            self.assertEqual(registry.base, ('http' if expect_plain else 'https') + '://' + registry_host)
 
             helm_calls.clear()
             registry_http = delivery.Registry.__new__(delivery.Registry)
@@ -386,21 +388,18 @@ class DeliveryTests(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         host = f'127.0.0.1:{port}'
-        env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
-               'ZOT_USER': user, 'ZOT_PASS': password}
         payload = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}'
         try:
-            with patch.dict(os.environ, env, clear=False):
-                registry = delivery.Registry()
-                digest, _, _ = registry.manifest('app/test', 'tag', payload)
-            self.assertEqual(digest, 'sha256:' + hashlib.sha256(payload).hexdigest())
-
             registry = delivery.Registry.__new__(delivery.Registry)
             registry.host = host
             registry.http = True
             registry.base = 'http://' + host
             registry._user = user
             registry._password = password
+            registry._auth = delivery.basic_auth_header(user, password)
+            digest, _, _ = registry.manifest('app/test', 'tag', payload)
+            self.assertEqual(digest, 'sha256:' + hashlib.sha256(payload).hexdigest())
+
             registry._auth = 'Basic invalid'
             with self.assertRaises(urllib.error.HTTPError) as ctx:
                 registry.manifest('app/test', 'tag2', payload)
