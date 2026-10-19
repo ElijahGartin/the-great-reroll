@@ -181,16 +181,28 @@ class DeliveryTests(unittest.TestCase):
                 self.assertIn('platform-state#415', str(ctx.exception))
                 resolve.assert_not_called()
 
-    def test_registry_rejects_insecure_transport_on_tls_hostname(self):
-        host = delivery.TLS_REGISTRY_HOSTNAME + ':443'
-        env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
-               'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-        with patch.dict(os.environ, env, clear=False), \
-                patch.object(delivery, 'resolve_zot_credentials') as resolve:
-            with self.assertRaises(ValueError) as ctx:
-                delivery.Registry()
-            self.assertIn('plain HTTP is not allowed against the TLS hostname', str(ctx.exception))
-            resolve.assert_not_called()
+    def test_ci_registry_insecure_only_for_in_cluster_zot_port(self):
+        suffix = delivery.IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX
+        for host in ('registry.example.com:5000', 'foo.svc.cluster.local:443'):
+            env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
+                   'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+            with patch.dict(os.environ, env, clear=False), \
+                    patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                with self.assertRaises(ValueError) as ctx:
+                    delivery.Registry()
+                self.assertIn(suffix, str(ctx.exception))
+                resolve.assert_not_called()
+
+        cluster_host = 'zot.harbor.svc.cluster.local:5000'
+        for insecure, expect_http in (('true', True), ('false', False), (None, False)):
+            env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host,
+                   'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+            if insecure is not None:
+                env['CI_REGISTRY_INSECURE'] = insecure
+            with patch.dict(os.environ, env, clear=False):
+                registry = delivery.Registry()
+            self.assertEqual(registry.http, expect_http)
+            self.assertEqual(registry.base, ('http' if expect_http else 'https') + '://' + cluster_host)
 
     def test_insecure_transport_gated_on_ci_registry_insecure(self):
         release_source = (ROOT / 'ci/release.py').read_text()

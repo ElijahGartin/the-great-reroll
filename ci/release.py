@@ -136,7 +136,7 @@ def ci_registry_insecure():
     return value == 'true'
 
 
-TLS_REGISTRY_HOSTNAME = 'zot.pi-lab.thunderrock.dev'
+IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX = '.svc.cluster.local:5000'
 
 
 def validate_registry_environment():
@@ -153,10 +153,10 @@ def validate_registry_environment():
     if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', registry):
         raise ValueError('REGISTRY must be a hostname with optional port')
     http = ci_registry_insecure()
-    hostname = registry.rsplit(':', 1)[0] if ':' in registry else registry
-    if http and hostname == TLS_REGISTRY_HOSTNAME:
+    if http and not registry.endswith(IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX):
         raise ValueError(
-            'plain HTTP is not allowed against the TLS hostname ' + TLS_REGISTRY_HOSTNAME)
+            'CI_REGISTRY_INSECURE=true is only allowed when REGISTRY ends with '
+            + IN_CLUSTER_PLAIN_HTTP_REGISTRY_SUFFIX)
     return registry, http
 
 
