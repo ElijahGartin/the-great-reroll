@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import shutil
+import ssl
 import tarfile
 import urllib.error
 import urllib.request
@@ -18,6 +19,14 @@ DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
 MEDIA = 'application/vnd.oci.image.index.v1+json'
 ACCEPT = ', '.join([MEDIA, 'application/vnd.docker.distribution.manifest.list.v2+json',
                     'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json'])
+# Every env switch that makes this script or a pinned tool use plain HTTP or
+# skip registry TLS verification (Trivy 0.71.0, Syft 1.18.1). Cosign, Helm
+# push and Buildx take these only as argv flags, which this script never
+# passes. Registry access is HTTPS-only (platform-state#199), so presence alone
+# is refused, whatever the value: the tools parse values differently, and
+# Trivy treats any non-empty TRIVY_NON_SSL, even "false", as insecure.
+INSECURE_ENV = ('CI_REGISTRY_INSECURE', 'TRIVY_INSECURE', 'TRIVY_NON_SSL',
+                'SYFT_REGISTRY_INSECURE_USE_HTTP', 'SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY')
 
 
 def run(*args, capture=False, env=None):
@@ -49,6 +58,12 @@ def unpack_chart(source, destination):
                     shutil.copyfileobj(data, output)
 
 
+class RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Never follow the registry to another origin or scheme.
+        raise urllib.error.HTTPError(req.full_url, code, 'registry redirect refused', headers, fp)
+
+
 class Registry:
     def __init__(self):
         self.host = os.environ['REGISTRY']
@@ -56,8 +71,15 @@ class Registry:
             raise ValueError('REGISTRY must be a hostname with optional port')
         if os.environ['CI_REGISTRY'] != self.host:
             raise ValueError('REGISTRY and CI_REGISTRY must match')
-        self.http = os.environ.get('CI_REGISTRY_INSECURE') == 'true'
-        self.base = ('http' if self.http else 'https') + '://' + self.host
+        insecure = [name for name in INSECURE_ENV if name in os.environ]
+        if insecure:
+            raise ValueError('Registry access is HTTPS-only; remove ' + ', '.join(insecure) + ' from the environment')
+        self.base = 'https://' + self.host
+        # System trust with hostname checks, no environment proxies, no redirects.
+        self.opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+            RefuseRedirect())
 
     def manifest(self, repo, ref, data=None):
         headers = {'Accept': ACCEPT}
@@ -65,7 +87,7 @@ class Registry:
             headers['Content-Type'] = MEDIA
         request = urllib.request.Request(f'{self.base}/v2/{repo}/manifests/{ref}', data=data,
                                          headers=headers, method='PUT' if data is not None else 'GET')
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with self.opener.open(request, timeout=60) as response:
             body = response.read()
             if data is not None:
                 expected = 'sha256:' + hashlib.sha256(data).hexdigest()
@@ -145,14 +167,13 @@ def verify_statements(output, ref, kind, expected):
         raise ValueError('Verified attestations do not contain this build evidence')
 
 
-def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
-    transport = ['--allow-http-registry'] if registry.http else []
-    common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false', *transport]
+def sign_and_verify(ref, sbom_paths, predicate, signing_env):
+    common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false']
     run('cosign', 'sign', *common, ref, env=signing_env)
     run('cosign', 'attest', *common, '--type', 'https://slsa.dev/provenance/v1', '--predicate', predicate, ref, env=signing_env)
     for path in sbom_paths:
         run('cosign', 'attest', *common, '--type', 'spdxjson', '--predicate', path, ref, env=signing_env)
-    verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog', *transport]
+    verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog']
     run('cosign', 'verify', *verify, ref)
     for kind, paths in [('https://slsa.dev/provenance/v1', [predicate]), ('https://spdx.dev/Document', sbom_paths)]:
         output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True)
@@ -187,7 +208,7 @@ def main():
         builder = 'war-table-' + arch
         run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
             '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'])
-        output = 'type=registry,push=true' + (',registry.insecure=true' if registry.http else '')
+        output = 'type=registry,push=true'
         metadata = f'dist/build-{arch}.json'
         Path('dist').mkdir(exist_ok=True)
         run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,
@@ -204,8 +225,6 @@ def main():
     image_digest, _, _ = registry.manifest(repo, tag, index)
     artifacts = []
     image_sboms = []
-    scan_env = dict(os.environ, SYFT_REGISTRY_INSECURE_USE_HTTP=str(registry.http).lower(),
-                    TRIVY_INSECURE=str(registry.http).lower())
     Path('dist/security/reports').mkdir(parents=True, exist_ok=True)
     Path('dist/security/sboms').mkdir(parents=True, exist_ok=True)
     for descriptor in manifests:
@@ -215,8 +234,8 @@ def main():
         report = f'dist/security/reports/app-{arch}-trivy.json'
         run('trivy', 'image', '--image-src', 'remote', '--platform', 'linux/' + arch,
             '--scanners', 'vuln', '--severity', 'HIGH,CRITICAL', '--exit-code', '1',
-            '--format', 'json', '--output', report, ref, env=scan_env)
-        run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom, env=scan_env)
+            '--format', 'json', '--output', report, ref)
+        run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom)
         artifacts.append({'name': 'app-' + arch, 'image': ref, 'digest': descriptor['digest'],
                           'sbomPath': sbom, 'trivyReportPath': report})
         image_sboms.append(sbom)
@@ -226,8 +245,7 @@ def main():
     unpack_chart(f'dist/charts/war-table-{version}.tgz', 'dist/chart-source')
     chart_sbom = 'dist/security/sboms/chart.spdx.json'
     run('syft', 'dir:dist/chart-source', '-o', 'spdx-json=' + chart_sbom)
-    run('helm', 'push', f'dist/charts/war-table-{version}.tgz', 'oci://' + registry.host + '/platform/charts',
-        *(['--plain-http'] if registry.http else []))
+    run('helm', 'push', f'dist/charts/war-table-{version}.tgz', 'oci://' + registry.host + '/platform/charts')
     chart_digest, chart_body, _ = registry.manifest(chart_repo, version)
     verify_chart_content(chart_body, f'dist/charts/war-table-{version}.tgz')
     chart_ref = registry.host + '/' + chart_repo + '@' + chart_digest
@@ -239,8 +257,8 @@ def main():
         '--repo-root', '.', '--require-digest')
     predicate = 'dist/security/provenance.json'
     write(predicate, provenance(sha, os.environ.get('BUILD_TAG', 'war-table-' + build)))
-    sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
-    sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
+    sign_and_verify(image + '@' + image_digest, image_sboms, predicate, signing_env)
+    sign_and_verify(chart_ref, [chart_sbom], predicate, signing_env)
     # This file is intentionally the last operation and the only promotion input.
     write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
           'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
