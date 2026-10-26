@@ -11,6 +11,7 @@ import re
 import subprocess
 import shutil
 import ssl
+import sys
 import tarfile
 import tempfile
 import urllib.error
@@ -79,23 +80,10 @@ def resolve_zot_credentials(host):
 
 
 def _docker_config_auth_entries(auths, host):
-    """Yield auths entries for REGISTRY host, matching host:port and bare host keys."""
-    seen = set()
-    candidates = [host, 'http://' + host, 'https://' + host]
-    bare = host.rsplit(':', 1)[0] if ':' in host else host
-    if bare != host:
-        candidates.extend([bare, 'http://' + bare, 'https://' + bare])
-    for key in candidates:
-        if key in auths and key not in seen:
-            seen.add(key)
+    """Yield entries for the exact registry authority, allowing HTTP(S) key prefixes."""
+    for key in (host, 'http://' + host, 'https://' + host):
+        if key in auths:
             yield auths[key]
-    if ':' not in host:
-        for key, entry in auths.items():
-            normalized = key.split('://', 1)[-1]
-            if normalized == host or normalized.startswith(host + ':') or normalized.rsplit(':', 1)[0] == host:
-                if key not in seen:
-                    seen.add(key)
-                    yield entry
 
 
 def basic_auth_header(user, password):
@@ -105,17 +93,19 @@ def basic_auth_header(user, password):
 def create_cosign_docker_config_dir(host, user, password):
     """Ephemeral DOCKER_CONFIG for cosign registry auth (mode 0700, never logged)."""
     directory = Path(tempfile.mkdtemp(prefix='cosign-docker-config-'))
-    os.chmod(directory, 0o700)
-    config_path = directory / 'config.json'
-    config_path.write_text(json.dumps({
-        'auths': {host: {'auth': base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')}},
-    }))
-    os.chmod(config_path, 0o600)
+    try:
+        os.chmod(directory, 0o700)
+        config_path = directory / 'config.json'
+        with os.fdopen(os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as config:
+            json.dump({'auths': {host: {'auth': basic_auth_header(user, password)[6:]}}}, config)
+    except BaseException:
+        remove_cosign_docker_config_dir(directory)
+        raise
     return directory
 
 
 def remove_cosign_docker_config_dir(directory):
-    shutil.rmtree(directory, ignore_errors=True)
+    shutil.rmtree(directory)
 
 
 def unpack_chart(source, destination):
@@ -205,16 +195,26 @@ class Registry:
 
 def helm_push_chart(registry, chart_package):
     host = registry.host
-    login = ['helm', 'registry', 'login', host, '--username', registry._user, '--password-stdin']
-    try:
-        subprocess.run(login, input=registry._password, text=True, check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        run('helm', 'push', chart_package, 'oci://' + host + '/platform/charts')
-    except subprocess.CalledProcessError as error:
-        msg = _redact_secrets((error.stderr or '') + (error.stdout or ''), registry._password)
-        raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
-    finally:
-        subprocess.run(['helm', 'registry', 'logout', host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Helm 3.17.3 supports this flag on both commands. Never write publisher
+    # credentials to ambient Helm config; cleanup errors must fail the release.
+    with tempfile.TemporaryDirectory(prefix='helm-registry-config-') as directory:
+        config_path = Path(directory) / 'config.json'
+        with os.fdopen(os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as config:
+            config.write('{"auths": {}}\n')
+        config_args = ['--registry-config', str(config_path)]
+        login = ['helm', 'registry', 'login', host, '--username', registry._user,
+                 '--password-stdin', *config_args]
+        try:
+            subprocess.run(login, input=registry._password, text=True, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(['helm', 'push', chart_package, 'oci://' + host + '/platform/charts',
+                            *config_args], text=True, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as error:
+            msg = _redact_secrets('\n'.join(filter(None, (error.stderr, error.stdout))), registry._password)
+            if msg:
+                print(msg, file=sys.stderr)
+            raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
 
 
 def architecture_manifest(body, arch):
@@ -368,12 +368,12 @@ def main():
                            DOCKER_CONFIG=str(cosign_docker_config))
         sign_and_verify(image + '@' + image_digest, image_sboms, predicate, signing_env)
         sign_and_verify(chart_ref, [chart_sbom], predicate, signing_env)
-        # This file is intentionally the last operation and the only promotion input.
-        write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
-              'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
-              'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
     finally:
         remove_cosign_docker_config_dir(cosign_docker_config)
+    # The only promotion input is written after verification AND credential cleanup.
+    write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
+          'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
+          'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})
 
 
 if __name__ == '__main__':

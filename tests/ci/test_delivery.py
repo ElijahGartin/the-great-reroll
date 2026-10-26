@@ -359,47 +359,108 @@ class DeliveryTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
-    def test_helm_push_logs_in_with_password_stdin_and_logout_on_failure(self):
+    def test_helm_credentials_are_private_isolated_and_removed_on_success_or_failure(self):
         registry = delivery.Registry.__new__(delivery.Registry)
         registry.host = 'registry.example'
         registry._user = 'ci-push'
         registry._password = 'helm-secret'
-        calls = []
+        for failure in (None, 'login', 'push'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
+                ambient = Path(tmp) / '.config/helm/registry/config.json'
+                ambient.parent.mkdir(parents=True)
+                ambient.write_text('{"auths":{"existing":"keep-me"}}')
+                override = Path(tmp) / 'override.json'
+                override.write_text('{"auths":{"override":"keep-me-too"}}')
+                originals = {path: (path.read_bytes(), path.stat().st_mode)
+                             for path in (ambient, override)}
+                calls = []
+                configs = []
+
+                def fake_run(args, **kwargs):
+                    calls.append(list(args))
+                    config = Path(args[args.index('--registry-config') + 1])
+                    configs.append(config)
+                    self.assertNotIn(config, originals)
+                    self.assertEqual(config.parent.stat().st_mode & 0o777, 0o700)
+                    self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+                    self.assertNotIn(registry._password, ' '.join(args))
+                    self.assertTrue(kwargs['check'])
+                    self.assertTrue(kwargs['text'])
+                    self.assertEqual(kwargs['stdout'], subprocess.PIPE)
+                    self.assertEqual(kwargs['stderr'], subprocess.PIPE)
+                    for insecure in ('--insecure', '--insecure-skip-tls-verify', '--plain-http'):
+                        self.assertNotIn(insecure, args)
+                    if args[1:3] == ['registry', 'login']:
+                        self.assertEqual(args[3], registry.host)
+                        self.assertEqual(args[args.index('--username') + 1], registry._user)
+                        self.assertIn('--password-stdin', args)
+                        self.assertEqual(kwargs['input'], registry._password)
+                        self.assertEqual(json.loads(config.read_text()), {'auths': {}})
+                        # Login can write credentials before exiting unsuccessfully.
+                        config.write_text(registry._password)
+                        operation = 'login'
+                    else:
+                        self.assertEqual(args[1:4], ['push', 'chart.tgz',
+                                                    'oci://registry.example/platform/charts'])
+                        self.assertNotIn('input', kwargs)
+                        self.assertEqual(config.read_text(), registry._password)
+                        operation = 'push'
+                    if failure == operation:
+                        raise subprocess.CalledProcessError(
+                            1, args, output='stdout helm-secret',
+                            stderr='DENIED: chart publishing forbidden helm-secret Basic Y2k6c2VjcmV0')
+                    return subprocess.CompletedProcess(args, 0, stdout='', stderr='')
+
+                with patch.dict(os.environ, {'HELM_REGISTRY_CONFIG': str(override),
+                                              'HELM_CONFIG_HOME': str(ambient.parents[1])}), \
+                        patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
+                        patch('sys.stdout', new_callable=io.StringIO) as stdout, \
+                        patch('sys.stderr', new_callable=io.StringIO) as stderr:
+                    if failure:
+                        with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                            delivery.helm_push_chart(registry, 'chart.tgz')
+                        diagnostic = str(ctx.exception) + ctx.exception.stdout + ctx.exception.stderr
+                        self.assertNotIn(registry._password, diagnostic)
+                        self.assertNotIn('Y2k6c2VjcmV0', diagnostic)
+                        self.assertIn('***', diagnostic)
+                        visible = stderr.getvalue()
+                        self.assertIn('DENIED: chart publishing forbidden', visible)
+                        self.assertIn('stdout', visible)
+                        self.assertNotIn(registry._password, visible)
+                        self.assertNotIn('Y2k6c2VjcmV0', visible)
+                        self.assertIn('Basic ***', visible)
+                    else:
+                        delivery.helm_push_chart(registry, 'chart.tgz')
+                        self.assertEqual(stderr.getvalue(), '')
+                    self.assertEqual(stdout.getvalue(), '')
+                self.assertEqual(len(calls), 1 if failure == 'login' else 2)
+                self.assertEqual(len(set(configs)), 1)
+                self.assertFalse(configs[0].parent.exists())
+                for path, original in originals.items():
+                    self.assertEqual((path.read_bytes(), path.stat().st_mode), original)
+
+    def test_helm_cleanup_failure_cannot_report_success(self):
+        registry = delivery.Registry.__new__(delivery.Registry)
+        registry.host = 'registry.example'
+        registry._user = 'ci-push'
+        registry._password = 'helm-secret'
+        configs = []
 
         def fake_run(args, **kwargs):
-            calls.append({'args': list(args), 'kwargs': dict(kwargs)})
-            return subprocess.CompletedProcess(args, 0)
+            config = Path(args[args.index('--registry-config') + 1])
+            configs.append(config)
+            config.write_text(registry._password)
+            return subprocess.CompletedProcess(args, 0, stdout='', stderr='')
 
-        def fail_push(*args, **kwargs):
-            raise subprocess.CalledProcessError(1, list(args), stderr='push failed with helm-secret')
-
-        with patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
-                patch.object(delivery, 'run', side_effect=fail_push):
-            with self.assertRaises(subprocess.CalledProcessError) as ctx:
-                delivery.helm_push_chart(registry, 'dist/charts/war-table-1.tgz')
-        login = next(c for c in calls if c['args'][:3] == ['helm', 'registry', 'login'])
-        self.assertEqual(login['kwargs'].get('input'), 'helm-secret')
-        self.assertNotIn('helm-secret', login['args'])
-        self.assertTrue(any(c['args'][:3] == ['helm', 'registry', 'logout'] for c in calls))
-        self.assertNotIn('helm-secret', (ctx.exception.stderr or '') + str(ctx.exception.cmd))
-
-
-    def test_helm_login_and_push_use_authenticated_https(self):
-        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
-               'ZOT_USER': 'ci-push', 'ZOT_PASS': 'helm-secret'}
-        with patch.dict(os.environ, env, clear=True):
-            registry = delivery.Registry()
-        with patch.object(delivery.subprocess, 'run') as subprocess_run, \
-                patch.object(delivery, 'run') as run:
-            delivery.helm_push_chart(registry, 'chart.tgz')
-        login = subprocess_run.call_args_list[0]
-        self.assertEqual(login.args[0], ['helm', 'registry', 'login', registry.host,
-                                        '--username', 'ci-push', '--password-stdin'])
-        self.assertEqual(login.kwargs['input'], 'helm-secret')
-        run.assert_called_once_with('helm', 'push', 'chart.tgz',
-                                    'oci://registry.example/platform/charts')
-        self.assertEqual(subprocess_run.call_args_list[-1].args[0],
-                         ['helm', 'registry', 'logout', registry.host])
+        try:
+            with patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
+                    patch.object(delivery.shutil, 'rmtree', side_effect=OSError('cleanup failed')):
+                with self.assertRaisesRegex(OSError, 'cleanup failed'):
+                    delivery.helm_push_chart(registry, 'chart.tgz')
+            self.assertEqual(len(configs), 2)
+        finally:
+            if configs:
+                delivery.shutil.rmtree(configs[0].parent)
 
     def test_plain_http_and_skip_verify_switches_are_refused_whatever_their_value(self):
         base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
