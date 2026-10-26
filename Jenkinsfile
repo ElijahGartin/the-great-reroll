@@ -56,7 +56,13 @@ gitleaks git --redact --exit-code 1 .
         stage('Build, Scan and Sign') {
             steps {
                 sh 'bash ci/trusted-main.sh'
-                sh 'python3 ci/release.py'
+                withCredentials([usernamePassword(
+                    credentialsId: 'zot-ci-push',
+                    usernameVariable: 'ZOT_USER',
+                    passwordVariable: 'ZOT_PASS',
+                )]) {
+                    sh 'python3 ci/release.py'
+                }
             }
         }
         stage('Archive Verified Release') {

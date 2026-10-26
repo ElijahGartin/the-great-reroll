@@ -3,6 +3,7 @@
 import base64
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -10,7 +11,9 @@ import re
 import subprocess
 import shutil
 import ssl
+import sys
 import tarfile
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -37,6 +40,75 @@ def run(*args, capture=False, env=None):
 def write(path, data):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(data, indent=2) + '\n')
+
+
+def _redact_secrets(text, password=None):
+    if not text:
+        return text
+    if password:
+        text = text.replace(password, '***')
+    return re.sub(r'Basic [A-Za-z0-9+/=]+', 'Basic ***', str(text))
+
+
+def resolve_zot_credentials(host):
+    """Registry push credentials from Jenkins env or DOCKER_CONFIG auths (platform-state#415)."""
+    user = os.environ.get('ZOT_USER')
+    password = os.environ.get('ZOT_PASS')
+    if user and password:
+        return user, password
+    docker_config = os.environ.get('DOCKER_CONFIG')
+    if not docker_config:
+        raise ValueError(
+            'Zot registry credentials required for authenticated push: set ZOT_USER and ZOT_PASS '
+            '(Jenkins usernamePassword credential zot-ci-push) or mount registry auths at '
+            'DOCKER_CONFIG/config.json for ' + host)
+    config_path = Path(docker_config) / 'config.json'
+    if not config_path.is_file():
+        raise ValueError(
+            'Zot registry credentials required: missing ' + str(config_path) + ' and ZOT_USER/ZOT_PASS unset')
+    auths = json.loads(config_path.read_text()).get('auths', {})
+    for entry in _docker_config_auth_entries(auths, host):
+        if entry.get('auth'):
+            decoded = base64.b64decode(entry['auth']).decode('utf-8')
+            found_user, _, found_pass = decoded.partition(':')
+            if found_user and found_pass:
+                return found_user, found_pass
+        if entry.get('username') and entry.get('password'):
+            return entry['username'], entry['password']
+    raise ValueError(
+        'Zot registry credentials required: no auths entry for ' + host + ' in ' + str(config_path))
+
+
+def _docker_config_auth_entries(auths, host):
+    """Yield entries for the exact registry authority, allowing HTTP(S) key prefixes."""
+    for key in (host, 'http://' + host, 'https://' + host):
+        if key in auths:
+            yield auths[key]
+
+
+def basic_auth_header(user, password):
+    return 'Basic ' + base64.b64encode(f'{user}:{password}'.encode()).decode('ascii')
+
+
+def create_registry_docker_config_dir(host, user, password):
+    """Ephemeral DOCKER_CONFIG for release registry clients (mode 0700, never logged)."""
+    directory = Path(tempfile.mkdtemp(prefix='release-docker-config-'))
+    try:
+        os.chmod(directory, 0o700)
+        config_path = directory / 'config.json'
+        with os.fdopen(os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as config:
+            # Changing DOCKER_CONFIG also changes Docker CLI plugin discovery.
+            # Keep the checksum-pinned Buildx installed by ci/install-tools.py.
+            json.dump({'auths': {host: {'auth': basic_auth_header(user, password)[6:]}},
+                       'cliPluginsExtraDirs': ['/opt/war-table-ci/bin']}, config)
+    except BaseException:
+        remove_registry_docker_config_dir(directory)
+        raise
+    return directory
+
+
+def remove_registry_docker_config_dir(directory):
+    shutil.rmtree(directory)
 
 
 def unpack_chart(source, destination):
@@ -66,14 +138,19 @@ class RefuseRedirect(urllib.request.HTTPRedirectHandler):
 
 class Registry:
     def __init__(self):
-        self.host = os.environ['REGISTRY']
-        if not re.fullmatch(r'[a-zA-Z0-9.-]+(?::[0-9]+)?', self.host):
-            raise ValueError('REGISTRY must be a hostname with optional port')
+        self.host = os.environ.get('REGISTRY', '')
+        pattern = r'[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?'
+        for name in ('REGISTRY', 'CI_REGISTRY'):
+            value = os.environ.get(name, '')
+            if value == 'null' or not re.fullmatch(pattern, value):
+                raise ValueError(f'{name} must be a lowercase DNS hostname with optional port')
         if os.environ['CI_REGISTRY'] != self.host:
             raise ValueError('REGISTRY and CI_REGISTRY must match')
         insecure = [name for name in INSECURE_ENV if name in os.environ]
         if insecure:
             raise ValueError('Registry access is HTTPS-only; remove ' + ', '.join(insecure) + ' from the environment')
+        self._user, self._password = resolve_zot_credentials(self.host)
+        self._auth = basic_auth_header(self._user, self._password)
         self.base = 'https://' + self.host
         # System trust with hostname checks, no environment proxies, no redirects.
         self.opener = urllib.request.build_opener(
@@ -82,12 +159,19 @@ class Registry:
             RefuseRedirect())
 
     def manifest(self, repo, ref, data=None):
-        headers = {'Accept': ACCEPT}
+        headers = {'Accept': ACCEPT, 'Authorization': self._auth}
         if data is not None:
             headers['Content-Type'] = MEDIA
         request = urllib.request.Request(f'{self.base}/v2/{repo}/manifests/{ref}', data=data,
                                          headers=headers, method='PUT' if data is not None else 'GET')
-        with self.opener.open(request, timeout=60) as response:
+        try:
+            response_ctx = self.opener.open(request, timeout=60)
+        except urllib.error.HTTPError as error:
+            body = _redact_secrets(error.read().decode('utf-8', errors='replace'), self._password)
+            raise urllib.error.HTTPError(
+                error.url, error.code, _redact_secrets(error.reason, self._password), error.headers,
+                io.BytesIO(body.encode())) from None
+        with response_ctx as response:
             body = response.read()
             if data is not None:
                 expected = 'sha256:' + hashlib.sha256(data).hexdigest()
@@ -110,6 +194,30 @@ class Registry:
                 return
             raise
         raise ValueError(f'Refusing to overwrite existing tag {repo}:{ref}')
+
+
+def helm_push_chart(registry, chart_package):
+    host = registry.host
+    # Helm 3.17.3 supports this flag on both commands. Never write publisher
+    # credentials to ambient Helm config; cleanup errors must fail the release.
+    with tempfile.TemporaryDirectory(prefix='helm-registry-config-') as directory:
+        config_path = Path(directory) / 'config.json'
+        with os.fdopen(os.open(config_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as config:
+            config.write('{"auths": {}}\n')
+        config_args = ['--registry-config', str(config_path)]
+        login = ['helm', 'registry', 'login', host, '--username', registry._user,
+                 '--password-stdin', *config_args]
+        try:
+            subprocess.run(login, input=registry._password, text=True, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(['helm', 'push', chart_package, 'oci://' + host + '/platform/charts',
+                            *config_args], text=True, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as error:
+            msg = _redact_secrets('\n'.join(filter(None, (error.stderr, error.stdout))), registry._password)
+            if msg:
+                print(msg, file=sys.stderr)
+            raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
 
 
 def architecture_manifest(body, arch):
@@ -174,9 +282,9 @@ def sign_and_verify(ref, sbom_paths, predicate, signing_env):
     for path in sbom_paths:
         run('cosign', 'attest', *common, '--type', 'spdxjson', '--predicate', path, ref, env=signing_env)
     verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog']
-    run('cosign', 'verify', *verify, ref)
+    run('cosign', 'verify', *verify, ref, env=signing_env)
     for kind, paths in [('https://slsa.dev/provenance/v1', [predicate]), ('https://spdx.dev/Document', sbom_paths)]:
-        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True)
+        output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True, env=signing_env)
         verify_statements(output, ref, kind, [json.loads(Path(path).read_text()) for path in paths])
 
 
@@ -194,72 +302,78 @@ def main():
     chart_repo = 'platform/charts/war-table'
     registry.require_absent(repo, tag)
     registry.require_absent(chart_repo, version)
-    signing_env = dict(os.environ, COSIGN_PASSWORD=Path('/signing/password').read_text().rstrip('\n'))
+    cosign_password = Path('/signing/password').read_text().rstrip('\n')
     if Path('/signing/cosign.pub').read_bytes() != Path('ci/cosign.pub').read_bytes():
         raise ValueError('Mounted signing key does not match the reviewed application trust key')
     for key in ('/signing/cosign.key', '/signing/cosign.pub', '/certs/ca.crt', '/certs/tls.crt', '/certs/tls.key'):
         if not Path(key).is_file():
             raise ValueError(f'Missing delivery prerequisite: {key}')
-    manifests = []
-    for arch in ('amd64', 'arm64'):
-        arch_tag = tag + '-' + arch
-        registry.require_absent(repo, arch_tag)
-        tls = 'cacert=/certs/ca.crt,cert=/certs/tls.crt,key=/certs/tls.key,servername=' + os.environ[f'BUILDKIT_{arch.upper()}_NAME']
-        builder = 'war-table-' + arch
-        run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
-            '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'])
-        output = 'type=registry,push=true'
-        metadata = f'dist/build-{arch}.json'
-        Path('dist').mkdir(exist_ok=True)
-        run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,
-            '--provenance=mode=max', '--metadata-file', metadata, '--tag', image + ':' + arch_tag, '--output', output, '.')
-        built_digest = json.loads(Path(metadata).read_text())['containerimage.digest']
-        if not DIGEST.fullmatch(built_digest):
-            raise ValueError('BuildKit did not report an immutable artifact digest')
-        _, body, _ = registry.manifest(repo, built_digest)
-        digest = architecture_manifest(body, arch)
-        digest, body, content_type = registry.manifest(repo, digest)
-        manifests.append({'mediaType': content_type, 'digest': digest, 'size': len(body),
-                          'platform': {'os': 'linux', 'architecture': arch}})
-    index = json.dumps({'schemaVersion': 2, 'mediaType': MEDIA, 'manifests': manifests}, separators=(',', ':')).encode()
-    image_digest, _, _ = registry.manifest(repo, tag, index)
-    artifacts = []
-    image_sboms = []
-    Path('dist/security/reports').mkdir(parents=True, exist_ok=True)
-    Path('dist/security/sboms').mkdir(parents=True, exist_ok=True)
-    for descriptor in manifests:
-        arch = descriptor['platform']['architecture']
-        ref = image + '@' + descriptor['digest']
-        sbom = f'dist/security/sboms/app-{arch}.spdx.json'
-        report = f'dist/security/reports/app-{arch}-trivy.json'
-        run('trivy', 'image', '--image-src', 'remote', '--platform', 'linux/' + arch,
-            '--scanners', 'vuln', '--severity', 'HIGH,CRITICAL', '--exit-code', '1',
-            '--format', 'json', '--output', report, ref)
-        run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom)
-        artifacts.append({'name': 'app-' + arch, 'image': ref, 'digest': descriptor['digest'],
-                          'sbomPath': sbom, 'trivyReportPath': report})
-        image_sboms.append(sbom)
-    run('helm', 'package', 'deploy/helm/war-table', '--version', version, '--app-version', sha,
-        '--destination', 'dist/charts')
-    # Scan the exact packaged chart contents, not the mutable source tree.
-    unpack_chart(f'dist/charts/war-table-{version}.tgz', 'dist/chart-source')
-    chart_sbom = 'dist/security/sboms/chart.spdx.json'
-    run('syft', 'dir:dist/chart-source', '-o', 'spdx-json=' + chart_sbom)
-    run('helm', 'push', f'dist/charts/war-table-{version}.tgz', 'oci://' + registry.host + '/platform/charts')
-    chart_digest, chart_body, _ = registry.manifest(chart_repo, version)
-    verify_chart_content(chart_body, f'dist/charts/war-table-{version}.tgz')
-    chart_ref = registry.host + '/' + chart_repo + '@' + chart_digest
-    artifacts.append({'name': 'chart', 'image': chart_ref, 'digest': chart_digest, 'sbomPath': chart_sbom})
-    manifest = {'version': '1', 'generatedAt': datetime.now(timezone.utc).isoformat(),
-                'sourceSHA': sha, 'imageIndexDigest': image_digest, 'artifacts': artifacts}
-    write('dist/security/sbom-manifest.json', manifest)
-    run('python3', 'scripts/validate_sbom_manifest.py', '--manifest', 'dist/security/sbom-manifest.json',
-        '--repo-root', '.', '--require-digest')
-    predicate = 'dist/security/provenance.json'
-    write(predicate, provenance(sha, os.environ.get('BUILD_TAG', 'war-table-' + build)))
-    sign_and_verify(image + '@' + image_digest, image_sboms, predicate, signing_env)
-    sign_and_verify(chart_ref, [chart_sbom], predicate, signing_env)
-    # This file is intentionally the last operation and the only promotion input.
+    docker_config = create_registry_docker_config_dir(registry.host, registry._user, registry._password)
+    try:
+        registry_env = dict(os.environ, DOCKER_CONFIG=str(docker_config))
+        manifests = []
+        for arch in ('amd64', 'arm64'):
+            arch_tag = tag + '-' + arch
+            registry.require_absent(repo, arch_tag)
+            tls = 'cacert=/certs/ca.crt,cert=/certs/tls.crt,key=/certs/tls.key,servername=' + os.environ[f'BUILDKIT_{arch.upper()}_NAME']
+            builder = 'war-table-' + arch
+            run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
+                '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'], env=registry_env)
+            output = 'type=registry,push=true'
+            metadata = f'dist/build-{arch}.json'
+            Path('dist').mkdir(exist_ok=True)
+            run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,
+                '--provenance=mode=max', '--metadata-file', metadata, '--tag', image + ':' + arch_tag, '--output', output, '.', env=registry_env)
+            built_digest = json.loads(Path(metadata).read_text())['containerimage.digest']
+            if not DIGEST.fullmatch(built_digest):
+                raise ValueError('BuildKit did not report an immutable artifact digest')
+            _, body, _ = registry.manifest(repo, built_digest)
+            digest = architecture_manifest(body, arch)
+            digest, body, content_type = registry.manifest(repo, digest)
+            manifests.append({'mediaType': content_type, 'digest': digest, 'size': len(body),
+                              'platform': {'os': 'linux', 'architecture': arch}})
+        index = json.dumps({'schemaVersion': 2, 'mediaType': MEDIA, 'manifests': manifests}, separators=(',', ':')).encode()
+        image_digest, _, _ = registry.manifest(repo, tag, index)
+        artifacts = []
+        image_sboms = []
+        Path('dist/security/reports').mkdir(parents=True, exist_ok=True)
+        Path('dist/security/sboms').mkdir(parents=True, exist_ok=True)
+        for descriptor in manifests:
+            arch = descriptor['platform']['architecture']
+            ref = image + '@' + descriptor['digest']
+            sbom = f'dist/security/sboms/app-{arch}.spdx.json'
+            report = f'dist/security/reports/app-{arch}-trivy.json'
+            run('trivy', 'image', '--image-src', 'remote', '--platform', 'linux/' + arch,
+                '--scanners', 'vuln', '--severity', 'HIGH,CRITICAL', '--exit-code', '1',
+                '--format', 'json', '--output', report, ref, env=registry_env)
+            run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom, env=registry_env)
+            artifacts.append({'name': 'app-' + arch, 'image': ref, 'digest': descriptor['digest'],
+                              'sbomPath': sbom, 'trivyReportPath': report})
+            image_sboms.append(sbom)
+        run('helm', 'package', 'deploy/helm/war-table', '--version', version, '--app-version', sha,
+            '--destination', 'dist/charts')
+        # Scan the exact packaged chart contents, not the mutable source tree.
+        unpack_chart(f'dist/charts/war-table-{version}.tgz', 'dist/chart-source')
+        chart_sbom = 'dist/security/sboms/chart.spdx.json'
+        run('syft', 'dir:dist/chart-source', '-o', 'spdx-json=' + chart_sbom)
+        helm_push_chart(registry, f'dist/charts/war-table-{version}.tgz')
+        chart_digest, chart_body, _ = registry.manifest(chart_repo, version)
+        verify_chart_content(chart_body, f'dist/charts/war-table-{version}.tgz')
+        chart_ref = registry.host + '/' + chart_repo + '@' + chart_digest
+        artifacts.append({'name': 'chart', 'image': chart_ref, 'digest': chart_digest, 'sbomPath': chart_sbom})
+        manifest = {'version': '1', 'generatedAt': datetime.now(timezone.utc).isoformat(),
+                    'sourceSHA': sha, 'imageIndexDigest': image_digest, 'artifacts': artifacts}
+        write('dist/security/sbom-manifest.json', manifest)
+        run('python3', 'scripts/validate_sbom_manifest.py', '--manifest', 'dist/security/sbom-manifest.json',
+            '--repo-root', '.', '--require-digest')
+        predicate = 'dist/security/provenance.json'
+        write(predicate, provenance(sha, os.environ.get('BUILD_TAG', 'war-table-' + build)))
+        signing_env = dict(registry_env, COSIGN_PASSWORD=cosign_password)
+        sign_and_verify(image + '@' + image_digest, image_sboms, predicate, signing_env)
+        sign_and_verify(chart_ref, [chart_sbom], predicate, signing_env)
+    finally:
+        remove_registry_docker_config_dir(docker_config)
+    # The only promotion input is written after verification AND credential cleanup.
     write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
           'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
           'sbomManifestSHA256': hashlib.sha256(Path('dist/security/sbom-manifest.json').read_bytes()).hexdigest()})

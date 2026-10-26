@@ -27,9 +27,25 @@ The platform agent supplies:
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`
   for app-scoped signing. The password goes only into the cosign subprocess environment.
 - Egress to public pinned tool downloads, vulnerability databases, source control,
-  registry, and the two builders. Registry access currently uses the platform's
-  anonymous network-restricted profile; authenticated registries require explicit
-  credential integration before use.
+  registry, and the two builders. Registry **push** uses the Jenkins
+  `zot-ci-push` credential (`ZOT_USER` / `ZOT_PASS`). The Jenkinsfile requires
+  this binding. When the release script is invoked independently, it can also
+  read credentials from the builder pod's optional `DOCKER_CONFIG` mount (`DOCKER_CONFIG=/var/zot-docker-config`,
+  secret key `.dockerconfigjson` at `config.json`). The Jenkins credential ID
+  is a binding name; provision it with the War Table scoped publisher identity
+  under [platform-state#388](https://github.com/ThunderRockTech/platform-state/issues/388).
+  The earlier shared-identity proposal (#415) was closed without merging.
+  Confirm credential delivery before publishing. `ci/release.py`
+  builds a private temp `DOCKER_CONFIG` from the same resolved credentials for
+  Buildx create/build, remote Trivy/Syft scans, and cosign sign/attest/verify.
+  Buildx forwards client credentials to the remote builder over its session; a
+  daemon-only mount is insufficient. The private config retains discovery of the
+  checksum-pinned Buildx plugin and is removed after verification or any failure.
+  Credential cleanup must succeed before `dist/release.json` is written.
+  Docker config lookup matches the exact registry hostname and optional port;
+  credentials are never reused across ports. Helm login and push use a private
+  temporary registry config that is removed on success or failure. Cleanup
+  failure aborts the release; the ambient Helm credential config is untouched.
 
 Delivery runs syntax checks, application tests, chart checks, CI failure-gate tests,
 Gitleaks, and `platformManagedAppContractValidation`. SHA256-pinned tools build
@@ -61,7 +77,8 @@ private-key signing without public transparency-log publication; it does not cla
 keyless identity, public-log inclusion, or a SLSA certification level. Preserve and
 rotate the signing key through platform-state's encrypted-secret workflow.
 
-Only after every verification succeeds does Jenkins archive `dist/release.json`,
+Only after every verification and temporary credential cleanup succeeds is
+`dist/release.json` written. Jenkins then archives that release record,
 the chart package, SBOMs, reports, and provenance. The release record includes
 `chartVersion`, `imageDigest`, `chartDigest`, `sourceSHA`, and the SBOM manifest hash.
 Chart versions are `1.0.0-ci.<build>.g<short-sha>`. A failed build can leave quarantine

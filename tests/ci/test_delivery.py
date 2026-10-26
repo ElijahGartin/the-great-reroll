@@ -1,3 +1,4 @@
+import ast
 import base64
 import importlib.util
 import hashlib
@@ -8,8 +9,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('delivery', ROOT / 'ci/release.py')
@@ -94,9 +98,61 @@ class DeliveryTests(unittest.TestCase):
             delivery.verify_statements('', ref, kind, [predicate])
 
     def test_release_manifest_not_written_on_failed_signature_verification(self):
+        env = {'DOCKER_CONFIG': '/tmp/cosign-docker-config-test'}
         with patch.object(delivery, 'run', side_effect=subprocess.CalledProcessError(1, 'cosign')):
             with self.assertRaises(subprocess.CalledProcessError):
-                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json', {})
+                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json',
+                                         env)
+
+    def test_cosign_docker_config_dir_auth_and_cleanup(self):
+        directory = delivery.create_registry_docker_config_dir('registry.example:5000', 'push-user', 'push-pass')
+        config_path = Path(directory) / 'config.json'
+        self.assertTrue(config_path.is_file())
+        self.assertEqual(os.stat(directory).st_mode & 0o777, 0o700)
+        auth = json.loads(config_path.read_text())['auths']['registry.example:5000']['auth']
+        self.assertEqual(base64.b64decode(auth).decode(), 'push-user:push-pass')
+        delivery.remove_registry_docker_config_dir(directory)
+        self.assertFalse(Path(directory).exists())
+
+    def test_sign_and_verify_passes_docker_config_to_all_cosign_calls(self):
+        docker_config = '/var/tmp/cosign-docker-config-unit-test'
+        signing_env = {'DOCKER_CONFIG': docker_config, 'COSIGN_PASSWORD': 'secret'}
+        captured = []
+        predicate = delivery.provenance('abc', 'build-1')
+
+        def fake_run(*args, capture=False, env=None):
+            if args and args[0] == 'cosign':
+                captured.append((args[1], (env or {}).get('DOCKER_CONFIG')))
+            return '[]' if capture else None
+
+        with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
+            json.dump(predicate, handle)
+            predicate_path = handle.name
+        try:
+            with patch.object(delivery, 'run', side_effect=fake_run), \
+                    patch.object(delivery, 'verify_statements'):
+                delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], predicate_path,
+                                         signing_env)
+        finally:
+            Path(predicate_path).unlink(missing_ok=True)
+        self.assertGreaterEqual(len(captured), 4)
+        self.assertTrue(all(value == docker_config for _, value in captured))
+
+    def test_cosign_docker_config_removed_after_signing_finally(self):
+        directory = delivery.create_registry_docker_config_dir('registry.example:5000', 'u', 'p')
+        path = str(directory)
+        seen = []
+
+        def record_sign(*_args, **_kwargs):
+            seen.append(Path(path).is_dir())
+
+        try:
+            with patch.object(delivery, 'sign_and_verify', side_effect=record_sign):
+                delivery.sign_and_verify('ref', [], 'pred', {'DOCKER_CONFIG': path})
+        finally:
+            delivery.remove_registry_docker_config_dir(directory)
+        self.assertEqual(seen, [True])
+        self.assertFalse(Path(path).exists())
 
     def test_each_required_sbom_must_be_present(self):
         kind = 'https://spdx.dev/Document'
@@ -116,8 +172,35 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 delivery.Registry()
 
+    def test_registry_rejects_empty_or_null_hosts(self):
+        for registry, ci_registry in (('', ''), ('null', 'null'), ('registry.example', 'null')):
+            env = {'REGISTRY': registry, 'CI_REGISTRY': ci_registry, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
+            with patch.dict(os.environ, env, clear=True), \
+                    patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                with self.assertRaises(ValueError) as ctx:
+                    delivery.Registry()
+                resolve.assert_not_called()
+
+    def test_registry_rejects_unsafe_hostport_values_before_credentials(self):
+        reject = (
+            'evil.example/x.svc.cluster.local:5000',
+            'user@evil.example:5000',
+            'evil.example@x.svc.cluster.local:5000',
+            'HTTP://x.svc.cluster.local:5000',
+            'registry.example:5000\n',
+            'registry.example:5000 ',
+        )
+        for host in reject:
+            env = {'REGISTRY': host, 'CI_REGISTRY': host}
+            with self.subTest(host=host), patch.dict(os.environ, env, clear=True), \
+                    patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                with self.assertRaises(ValueError):
+                    delivery.Registry()
+                resolve.assert_not_called()
+
     def test_registry_publish_uses_put_and_binds_readback(self):
         submitted = b'{"schemaVersion":2}'
+        secret = 'registry-push-secret'
         for readback in (submitted, b'{"schemaVersion":1}'):
             calls = []
             def respond(request, timeout):
@@ -127,7 +210,9 @@ class DeliveryTests(unittest.TestCase):
                 response.headers = {'Content-Type': delivery.MEDIA,
                                     'Docker-Content-Digest': 'sha256:' + hashlib.sha256(body).hexdigest()}
                 return response
-            with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}):
+            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                   'ZOT_USER': 'ci-push', 'ZOT_PASS': secret}
+            with patch.dict(os.environ, env, clear=True):
                 registry = delivery.Registry()
             with patch.object(registry.opener, 'open', side_effect=respond):
                 if readback == submitted:
@@ -138,22 +223,262 @@ class DeliveryTests(unittest.TestCase):
                         registry.manifest('app', 'tag', submitted)
             self.assertEqual([call.get_method() for call in calls], ['PUT', 'GET'])
             self.assertEqual(calls[0].data, submitted)
+            expected_auth = delivery.basic_auth_header('ci-push', secret)
+            self.assertTrue(all(call.get_header('Authorization') == expected_auth for call in calls))
             self.assertTrue(all(call.full_url.startswith('https://registry.example/v2/') for call in calls))
+            self.assertNotIn(secret, str(calls))
+
+    def test_registry_http_errors_redact_password_and_basic_auth(self):
+        secret = 'registry-error-secret'
+        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+               'ZOT_USER': 'ci-push', 'ZOT_PASS': secret}
+        with patch.dict(os.environ, env, clear=True):
+            registry = delivery.Registry()
+        auth = registry._auth
+        error = urllib.error.HTTPError(
+            'https://registry.example/v2/app/manifests/tag', 401,
+            f'Unauthorized {secret} {auth}', {}, io.BytesIO(f'Failed {secret} {auth}'.encode()))
+        with patch.object(registry.opener, 'open', side_effect=error):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                registry.manifest('app', 'tag', b'{}')
+        try:
+            self.assertEqual(caught.exception.code, 401)
+            text = str(caught.exception) + caught.exception.read().decode()
+            self.assertNotIn(secret, text)
+            self.assertNotIn(auth, text)
+            self.assertIn('Basic ***', text)
+        finally:
+            caught.exception.close()
+            error.close()
+
+    def test_registry_credentials_missing_fails_fast(self):
+        with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'},
+                        clear=True):
+            os.environ.pop('ZOT_USER', None)
+            os.environ.pop('ZOT_PASS', None)
+            os.environ.pop('DOCKER_CONFIG', None)
+            with self.assertRaises(ValueError) as ctx:
+                delivery.Registry()
+            self.assertIn('credentials required', str(ctx.exception).lower())
+
+    def test_registry_credentials_from_docker_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = base64.b64encode(b'push-user:push-pass').decode()
+            config = Path(tmp) / 'config.json'
+            config.write_text(json.dumps({'auths': {'registry.example': {'auth': auth}}}))
+            env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                   'DOCKER_CONFIG': tmp}
+            with patch.dict(os.environ, env, clear=True):
+                os.environ.pop('ZOT_USER', None)
+                os.environ.pop('ZOT_PASS', None)
+                registry = delivery.Registry()
+            self.assertEqual(registry._auth, delivery.basic_auth_header('push-user', 'push-pass'))
+
+    def test_registry_credentials_from_docker_config_host_port_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            auth = base64.b64encode(b'zot-user:zot-pass').decode()
+            host_port = 'zot.harbor.svc.cluster.local:5000'
+            config = Path(tmp) / 'config.json'
+            config.write_text(json.dumps({'auths': {host_port: {'auth': auth}}}))
+            env = {'REGISTRY': host_port, 'CI_REGISTRY': host_port, 'DOCKER_CONFIG': tmp}
+            with patch.dict(os.environ, env, clear=True):
+                os.environ.pop('ZOT_USER', None)
+                os.environ.pop('ZOT_PASS', None)
+                registry = delivery.Registry()
+            self.assertEqual(registry._auth, delivery.basic_auth_header('zot-user', 'zot-pass'))
+
+    def test_manifest_put_requires_basic_auth_against_local_registry(self):
+        user, password = 'ci-push', 'local-registry-secret'
+        stored = {}
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                return
+
+            def _authorized(self):
+                header = self.headers.get('Authorization', '')
+                return header == delivery.basic_auth_header(user, password)
+
+            def do_PUT(self):
+                length = int(self.headers.get('Content-Length', 0))
+                body = self.rfile.read(length)
+                if not self._authorized():
+                    self.send_response(401)
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
+                stored[self.path] = body
+                digest = 'sha256:' + hashlib.sha256(body).hexdigest()
+                self.send_response(201)
+                self.send_header('Docker-Content-Digest', digest)
+                self.send_header('Content-Type', delivery.MEDIA)
+                self.end_headers()
+
+            def do_GET(self):
+                if not self._authorized():
+                    self.send_response(401)
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
+                body = stored.get(self.path, b'')
+                digest = 'sha256:' + hashlib.sha256(body).hexdigest()
+                self.send_response(200)
+                self.send_header('Docker-Content-Digest', digest)
+                self.send_header('Content-Type', delivery.MEDIA)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                if body:
+                    self.wfile.write(body)
+
+        server = HTTPServer(('127.0.0.1', 0), Handler)
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host = f'127.0.0.1:{port}'
+        payload = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[]}'
+        try:
+            registry = delivery.Registry.__new__(delivery.Registry)
+            registry.host = host
+            # The loopback HTTP fixture exercises auth only; production uses HTTPS.
+            registry.base = 'http://' + host
+            registry.opener = delivery.urllib.request.build_opener(
+                delivery.urllib.request.ProxyHandler({}), delivery.RefuseRedirect())
+            registry._user = user
+            registry._password = password
+            registry._auth = delivery.basic_auth_header(user, password)
+            digest, _, _ = registry.manifest('app/test', 'tag', payload)
+            self.assertEqual(digest, 'sha256:' + hashlib.sha256(payload).hexdigest())
+
+            registry._auth = 'Basic invalid'
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                registry.manifest('app/test', 'tag2', payload)
+            self.assertEqual(ctx.exception.code, 401)
+            ctx.exception.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_helm_credentials_are_private_isolated_and_removed_on_success_or_failure(self):
+        registry = delivery.Registry.__new__(delivery.Registry)
+        registry.host = 'registry.example'
+        registry._user = 'ci-push'
+        registry._password = 'helm-secret'
+        for failure in (None, 'login', 'push'):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
+                ambient = Path(tmp) / '.config/helm/registry/config.json'
+                ambient.parent.mkdir(parents=True)
+                ambient.write_text('{"auths":{"existing":"keep-me"}}')
+                override = Path(tmp) / 'override.json'
+                override.write_text('{"auths":{"override":"keep-me-too"}}')
+                originals = {path: (path.read_bytes(), path.stat().st_mode)
+                             for path in (ambient, override)}
+                calls = []
+                configs = []
+
+                def fake_run(args, **kwargs):
+                    calls.append(list(args))
+                    config = Path(args[args.index('--registry-config') + 1])
+                    configs.append(config)
+                    self.assertNotIn(config, originals)
+                    self.assertEqual(config.parent.stat().st_mode & 0o777, 0o700)
+                    self.assertEqual(config.stat().st_mode & 0o777, 0o600)
+                    self.assertNotIn(registry._password, ' '.join(args))
+                    self.assertTrue(kwargs['check'])
+                    self.assertTrue(kwargs['text'])
+                    self.assertEqual(kwargs['stdout'], subprocess.PIPE)
+                    self.assertEqual(kwargs['stderr'], subprocess.PIPE)
+                    for insecure in ('--insecure', '--insecure-skip-tls-verify', '--plain-http'):
+                        self.assertNotIn(insecure, args)
+                    if args[1:3] == ['registry', 'login']:
+                        self.assertEqual(args[3], registry.host)
+                        self.assertEqual(args[args.index('--username') + 1], registry._user)
+                        self.assertIn('--password-stdin', args)
+                        self.assertEqual(kwargs['input'], registry._password)
+                        self.assertEqual(json.loads(config.read_text()), {'auths': {}})
+                        # Login can write credentials before exiting unsuccessfully.
+                        config.write_text(registry._password)
+                        operation = 'login'
+                    else:
+                        self.assertEqual(args[1:4], ['push', 'chart.tgz',
+                                                    'oci://registry.example/platform/charts'])
+                        self.assertNotIn('input', kwargs)
+                        self.assertEqual(config.read_text(), registry._password)
+                        operation = 'push'
+                    if failure == operation:
+                        raise subprocess.CalledProcessError(
+                            1, args, output='stdout helm-secret',
+                            stderr='DENIED: chart publishing forbidden helm-secret Basic Y2k6c2VjcmV0')
+                    return subprocess.CompletedProcess(args, 0, stdout='', stderr='')
+
+                with patch.dict(os.environ, {'HELM_REGISTRY_CONFIG': str(override),
+                                              'HELM_CONFIG_HOME': str(ambient.parents[1])}), \
+                        patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
+                        patch('sys.stdout', new_callable=io.StringIO) as stdout, \
+                        patch('sys.stderr', new_callable=io.StringIO) as stderr:
+                    if failure:
+                        with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                            delivery.helm_push_chart(registry, 'chart.tgz')
+                        diagnostic = str(ctx.exception) + ctx.exception.stdout + ctx.exception.stderr
+                        self.assertNotIn(registry._password, diagnostic)
+                        self.assertNotIn('Y2k6c2VjcmV0', diagnostic)
+                        self.assertIn('***', diagnostic)
+                        visible = stderr.getvalue()
+                        self.assertIn('DENIED: chart publishing forbidden', visible)
+                        self.assertIn('stdout', visible)
+                        self.assertNotIn(registry._password, visible)
+                        self.assertNotIn('Y2k6c2VjcmV0', visible)
+                        self.assertIn('Basic ***', visible)
+                    else:
+                        delivery.helm_push_chart(registry, 'chart.tgz')
+                        self.assertEqual(stderr.getvalue(), '')
+                    self.assertEqual(stdout.getvalue(), '')
+                self.assertEqual(len(calls), 1 if failure == 'login' else 2)
+                self.assertEqual(len(set(configs)), 1)
+                self.assertFalse(configs[0].parent.exists())
+                for path, original in originals.items():
+                    self.assertEqual((path.read_bytes(), path.stat().st_mode), original)
+
+    def test_helm_cleanup_failure_cannot_report_success(self):
+        registry = delivery.Registry.__new__(delivery.Registry)
+        registry.host = 'registry.example'
+        registry._user = 'ci-push'
+        registry._password = 'helm-secret'
+        configs = []
+
+        def fake_run(args, **kwargs):
+            config = Path(args[args.index('--registry-config') + 1])
+            configs.append(config)
+            config.write_text(registry._password)
+            return subprocess.CompletedProcess(args, 0, stdout='', stderr='')
+
+        try:
+            with patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
+                    patch.object(delivery.shutil, 'rmtree', side_effect=OSError('cleanup failed')):
+                with self.assertRaisesRegex(OSError, 'cleanup failed'):
+                    delivery.helm_push_chart(registry, 'chart.tgz')
+            self.assertEqual(len(configs), 2)
+        finally:
+            if configs:
+                delivery.shutil.rmtree(configs[0].parent)
 
     def test_plain_http_and_skip_verify_switches_are_refused_whatever_their_value(self):
-        base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'}
+        base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                'ZOT_USER': 'ci', 'ZOT_PASS': 'test-secret'}
         # Trivy enables insecure mode for any non-empty TRIVY_NON_SSL, "false" included.
         for name in delivery.INSECURE_ENV:
             for value in ('1', 'true', 'TRUE', ' yes ', 'false', 'FALSE', ' false ', 'false-ish', '0', ''):
                 with self.subTest(name=name, value=value), patch.dict(os.environ, {**base, name: value}, clear=True), \
-                        self.assertRaisesRegex(ValueError, 'HTTPS-only'):
-                    delivery.Registry()
+                        patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                    with self.assertRaisesRegex(ValueError, 'HTTPS-only'):
+                        delivery.Registry()
+                    resolve.assert_not_called()
         with patch.dict(os.environ, base, clear=True):
             self.assertEqual(delivery.Registry().base, 'https://registry.example')
 
     def test_registry_client_verifies_tls_ignores_proxies_and_refuses_redirects(self):
         env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
-               'HTTPS_PROXY': 'http://proxy.example:3128'}
+               'HTTPS_PROXY': 'http://proxy.example:3128', 'ZOT_USER': 'ci', 'ZOT_PASS': 'test-secret'}
         with patch.dict(os.environ, env):
             registry = delivery.Registry()
         handlers = {type(h): h for h in registry.opener.handlers}
@@ -165,9 +490,10 @@ class DeliveryTests(unittest.TestCase):
         self.assertNotIn(delivery.urllib.request.HTTPRedirectHandler, handlers)
         request = delivery.urllib.request.Request('https://registry.example/v2/app/manifests/tag')
         for target in ('https://elsewhere.example/v2/app/manifests/tag', 'http://registry.example/v2/app/manifests/tag'):
-            with self.subTest(target=target), self.assertRaises(delivery.urllib.error.HTTPError):
+            with self.subTest(target=target), self.assertRaises(delivery.urllib.error.HTTPError) as caught:
                 handlers[delivery.RefuseRedirect].redirect_request(request, None, 307, 'Temporary Redirect',
                                                                    {'Location': target}, target)
+            caught.exception.close()
 
     def test_signing_and_verification_never_allow_plain_http(self):
         calls = []
@@ -179,7 +505,16 @@ class DeliveryTests(unittest.TestCase):
 
     def test_release_script_has_no_plain_http_transport(self):
         source = (ROOT / 'ci/release.py').read_text()
-        for flag in ('--plain-http', 'registry.insecure', '--allow-http-registry', "'http://", 'urlopen('):
+        # Legacy Docker auth keys may include a scheme; they never select transport.
+        lines = source.splitlines(keepends=True)
+        for node in ast.parse(source).body:
+            if isinstance(node, ast.FunctionDef) and node.name == '_docker_config_auth_entries':
+                del lines[node.lineno - 1:node.end_lineno]
+                break
+        source = ''.join(lines)
+        for flag in ('--plain-http', 'registry.insecure', '--allow-http-registry', "'http://", 'urlopen(',
+                     '_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
+                     '--allow-insecure-registry'):
             with self.subTest(flag=flag):
                 self.assertNotIn(flag, source)
 
