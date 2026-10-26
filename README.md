@@ -24,7 +24,7 @@ For access from other devices, use an HTTPS reverse proxy and set `PUBLIC_ORIGIN
 ## Play and return later
 
 1. Open **Private multiplayer**, choose a mode and rules, and create a room with your guest name.
-2. Share its invite link/code. Guests join with distinct names; every player marks themselves ready before the host starts.
+2. Share its invite link/code. Invite links open a dedicated join view: guests enter their name without seeing room-creation settings. Returning guests reopen their saved seat automatically, or choose **Already joined? Recover your seat**. Every player marks themselves ready before the host starts.
 3. Save your **private recovery file** when joining. Your browser remembers your seat using an HttpOnly cookie. On a new device, enter the room code and your recovery code in **Return to your saved game**. Recovery codes control a seat: keep them private and separate from the shared invite.
 4. Each accepted action is saved automatically. The host can **Pause & save** and resume on another day. Pick timers default to off; enabled timers continue while players are away unless the host pauses the game.
 5. Export CSV or JSON at any time. Unfinished exports are marked as progress; finished exports contain the final roster. Exports are records, not restorable room backups.
