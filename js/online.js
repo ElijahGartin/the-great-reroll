@@ -36,6 +36,30 @@
       localStorage.setItem('reroll-recent-rooms', JSON.stringify([code, ...(Array.isArray(previous) ? previous : []).filter(c => c !== code)].slice(0, 8)));
     } catch (_) { /* Storage is optional; never store credentials. */ }
   }
+  function showEntry(code = null) {
+    const invited = code !== null;
+    const valid = !invited || /^[A-Z0-9]{8,10}$/.test(code);
+    $('entry').className = invited ? 'invite-entry' : 'columns';
+    $('entry').hidden = false;
+    $('session').hidden = true;
+    $('create').hidden = invited;
+    $('join-title').textContent = invited ? 'Join your party' : 'Join your group';
+    $('invite-description').hidden = !invited;
+    $('invite-room-code').textContent = valid ? code : 'Invalid room code';
+    $('join-code-field').hidden = invited;
+    $('recover-code-field').hidden = invited;
+    for (const id of ['join','recover']) {
+      $(id).elements.code.readOnly = invited;
+      if (invited) $(id).elements.code.value = code;
+      $(id).querySelector('button').disabled = !valid;
+    }
+    $('join').querySelector('button').textContent = invited ? 'Join party' : 'Join room';
+    $('recover').hidden = invited;
+    $('show-recovery').hidden = !invited || !valid;
+    $('show-recovery').textContent = 'Already joined? Recover your seat';
+    $('multiplayer-home').hidden = !invited;
+    $('recent').hidden = invited || !$('recent').innerHTML;
+  }
   function accept(result, force = false) {
     const room = result.room;
     if (!room) throw new Error('The server returned an incomplete room. Please refresh.');
@@ -75,12 +99,10 @@
       if (code === state.code) accept(result);
     } catch (failure) {
       if ([401,403,404,410].includes(failure.status)) {
-        connection(failure.status === 410 || failure.status === 404 ? 'Room expired or unavailable. Reopen a room or create a new one.' : 'Seat access expired. Reopen this room with your private recovery code.');
+        connection(failure.status === 410 || failure.status === 404 ? 'This room has expired or is unavailable. Ask your host for a current invite.' : 'Seat access expired. Recover your seat or enter your name to join this party.');
         error(failure.message);
-        $('entry').hidden = false;
-        $('session').hidden = true;
+        showEntry(state.code);
         state.pending = null; $('retry').hidden = true;
-        $('recover').elements.code.value = state.code;
         state.code = null;
       } else connection('Reconnecting… Your last confirmed progress is saved.');
     } finally {
@@ -129,6 +151,7 @@
   $('retry').onclick = sendPending;
   async function enter(form, kind) {
     const submit = form.querySelector('button');
+    if (submit.disabled) return;
     submit.disabled = true;
     error('');
     try {
@@ -157,6 +180,11 @@
     finally { submit.disabled = false; }
   }
   for (const id of ['create','join','recover']) $(id).onsubmit = event => { event.preventDefault(); enter($(id), id); };
+  $('show-recovery').onclick = () => {
+    $('recover').hidden = !$('recover').hidden;
+    $('show-recovery').textContent = $('recover').hidden ? 'Already joined? Recover your seat' : 'Hide seat recovery';
+    if (!$('recover').hidden) $('recover').elements.token.focus();
+  };
   $('create').elements.mode.onchange = () => {
     const deal = $('create').elements.mode.value === 'deal';
     $('draft-settings').hidden = deal; $('deal-settings').hidden = !deal;
@@ -192,7 +220,7 @@
   }
   function lobby() {
     const room = state.room, self = room.participants.find(p => p.id === state.participantId);
-    return `<div class="panel"><h2>Ready the room</h2><p>Share the invite and wait for your group. All guests must mark themselves ready. The host can start when everyone is here.</p><ul>${room.participants.map(p => `<li><strong>${esc(p.name)}</strong> · ${p.id === room.hostId ? 'Host · ' : ''}${p.ready ? 'Ready' : 'Not ready'} ${isHost() && p.id !== room.hostId ? button('Make host','transfer-host',{participantId:p.id})+' '+button('Remove from lobby','remove-player',{participantId:p.id}) : ''}</li>`).join('')}</ul><div class="toolbar">${button(self?.ready ? 'Not ready yet' : "I'm ready",'ready',{ready:!self?.ready})}${isHost() ? button('Start game','start',{},!room.participants.every(p => p.ready)) : ''}</div><details><summary>Room rules</summary><p>${esc(room.config.faction)} · ${esc(room.config.format || room.mode)} · ${room.config.pickTimer ? esc(room.config.pickTimer)+' second picks' : 'No pick timer'} · ${esc(room.config.duplicates || 'unique')} characters · ${esc(room.config.enforce || 'none')} role enforcement</p>${room.mode === 'deal' ? `<p>${esc(room.config.budget)} defense points · ${esc(room.config.attempts)} steal attempts</p>` : ''}</details></div>`;
+    return `<div class="panel"><h2>${isHost() ? 'Ready the room' : "You're in the party"}</h2><p>${isHost() ? 'Share the invite and wait for your group. All guests must mark themselves ready. The host can start when everyone is here.' : 'Mark yourself ready below. Your host will start the game once everyone is here and ready.'}</p><ul>${room.participants.map(p => `<li><strong>${esc(p.name)}</strong> · ${p.id === room.hostId ? 'Host · ' : ''}${p.ready ? 'Ready' : 'Not ready'} ${isHost() && p.id !== room.hostId ? button('Make host','transfer-host',{participantId:p.id})+' '+button('Remove from lobby','remove-player',{participantId:p.id}) : ''}</li>`).join('')}</ul><div class="toolbar">${button(self?.ready ? 'Not ready yet' : "I'm ready",'ready',{ready:!self?.ready})}${isHost() ? button('Start game','start',{},!room.participants.every(p => p.ready)) : ''}</div><details><summary>Room rules</summary><p>${esc(room.config.faction)} · ${esc(room.config.format || room.mode)} · ${room.config.pickTimer ? esc(room.config.pickTimer)+' second picks' : 'No pick timer'} · ${esc(room.config.duplicates || 'unique')} characters · ${esc(room.config.enforce || 'none')} role enforcement</p>${room.mode === 'deal' ? `<p>${esc(room.config.budget)} defense points · ${esc(room.config.attempts)} steal attempts</p>` : ''}</details></div>`;
   }
   function draftView() {
     const game = state.room.game;
@@ -297,10 +325,25 @@
       $('recent').innerHTML = `<h2>Recent rooms</h2><ul>${recent.filter(code => typeof code === 'string' && /^[A-Z0-9]{4,12}$/.test(code)).map(code => `<li><a href="online.html?room=${encodeURIComponent(code)}">Room ${esc(code)}</a></li>`).join('')}</ul><p>Only room codes are stored here. Your private credentials are never stored in this list.</p>`;
     }
   } catch (_) { /* Optional storage may be unavailable. */ }
-  const invitedCode = new URL(location.href).searchParams.get('room')?.trim().toUpperCase();
-  if (invitedCode) {
-    $('join').elements.code.value = invitedCode;
-    $('recover').elements.code.value = invitedCode;
-    api(`/api/rooms/${encodeURIComponent(invitedCode)}`).then(result => accept(result,true)).catch(() => connection('Enter your guest name to join, or use your recovery code to reclaim your saved seat.'));
+  const roomParameter = new URL(location.href).searchParams.get('room');
+  if (roomParameter === null) {
+    showEntry();
+    connection('Create a room or join your group.');
+  } else {
+    const invitedCode = roomParameter.trim().toUpperCase();
+    showEntry(invitedCode);
+    if (!/^[A-Z0-9]{8,10}$/.test(invitedCode)) {
+      connection('This invite link is invalid.');
+      error('Ask your host for a new invite link with a valid room code.');
+    } else {
+      $('entry').hidden = true;
+      connection('Opening your room…');
+      api(`/api/rooms/${encodeURIComponent(invitedCode)}`).then(result => accept(result,true)).catch(failure => {
+        showEntry(invitedCode);
+        connection('Enter your guest name to join this party. Already joined? Recover your seat below.');
+        if (![401,403].includes(failure.status)) error(failure.message);
+        $('join').elements.name.focus();
+      });
+    }
   }
 })();
