@@ -15,11 +15,13 @@ cannot protect a signing key from an attacker allowed to rewrite the Jenkinsfile
 
 The platform agent supplies:
 
-- `REGISTRY` and matching `CI_REGISTRY` (hostname only from these vars). Each value is
-  validated with a single `re.fullmatch` (lowercase DNS host:port; in-cluster
-  `*.svc.cluster.local:5000` only when `CI_REGISTRY_INSECURE` is exactly `true`).
-  Plain HTTP, Helm `--plain-http`, BuildKit `registry.insecure`, and cosign
-  `--allow-http-registry` follow that flag. No TLS-verify bypass in `ci/release.py`.
+- `REGISTRY` and matching `CI_REGISTRY`: the registry's HTTPS host (on pi-lab,
+  `zot.pi-lab.thunderrock.dev`). Registry access is HTTPS-only with system trust
+  (platform-state#199). The release client follows no redirect and ignores
+  environment proxies. The release refuses to start if `CI_REGISTRY_INSECURE`,
+  `TRIVY_INSECURE`, `TRIVY_NON_SSL`, `SYFT_REGISTRY_INSECURE_USE_HTTP` or
+  `SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY` is present with any value, even
+  empty or `false`: delete them from the pod template rather than setting them.
 - `BUILDKIT_AMD64_ADDR`, `BUILDKIT_AMD64_NAME`, `BUILDKIT_ARM64_ADDR`, and
   `BUILDKIT_ARM64_NAME` for remote BuildKit addresses and TLS server names.
 - `/certs/{ca.crt,tls.crt,tls.key}` for mTLS; `/signing/{cosign.key,cosign.pub,password}`
@@ -28,9 +30,11 @@ The platform agent supplies:
   registry, and the two builders. Registry **push** uses the Jenkins
   `zot-ci-push` credential (`ZOT_USER` / `ZOT_PASS`) and/or the builder pod's
   optional `DOCKER_CONFIG` mount (`DOCKER_CONFIG=/var/zot-docker-config`,
-  secret key `.dockerconfigjson` at `config.json`); see
-  [platform-state#415](https://github.com/ThunderRockTech/platform-state/pull/415)
-  (`war-table-builder` `builder` container in `values/jenkins.yaml`). `ci/release.py`
+  secret key `.dockerconfigjson` at `config.json`). The Jenkins credential ID
+  is a binding name; provision it with the War Table scoped publisher identity
+  under [platform-state#388](https://github.com/ThunderRockTech/platform-state/issues/388).
+  The earlier shared-identity proposal (#415) was closed without merging.
+  Confirm credential delivery before publishing. `ci/release.py`
   builds a private temp `DOCKER_CONFIG` from the same resolved credentials for
   cosign sign/attest/verify only; BuildKit pushes use the remote builder's mount.
 

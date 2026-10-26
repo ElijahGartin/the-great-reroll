@@ -1,3 +1,4 @@
+import ast
 import base64
 import importlib.util
 import hashlib
@@ -101,7 +102,7 @@ class DeliveryTests(unittest.TestCase):
         with patch.object(delivery, 'run', side_effect=subprocess.CalledProcessError(1, 'cosign')):
             with self.assertRaises(subprocess.CalledProcessError):
                 delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], 'predicate.json',
-                                         type('Registry', (), {'http': True})(), env)
+                                         env)
 
     def test_cosign_docker_config_dir_auth_and_cleanup(self):
         directory = delivery.create_cosign_docker_config_dir('registry.example:5000', 'push-user', 'push-pass')
@@ -131,7 +132,7 @@ class DeliveryTests(unittest.TestCase):
             with patch.object(delivery, 'run', side_effect=fake_run), \
                     patch.object(delivery, 'verify_statements'):
                 delivery.sign_and_verify('example@sha256:' + 'a' * 64, [], predicate_path,
-                                         type('Registry', (), {'http': True})(), signing_env)
+                                         signing_env)
         finally:
             Path(predicate_path).unlink(missing_ok=True)
         self.assertGreaterEqual(len(captured), 4)
@@ -147,7 +148,7 @@ class DeliveryTests(unittest.TestCase):
 
         try:
             with patch.object(delivery, 'sign_and_verify', side_effect=record_sign):
-                delivery.sign_and_verify('ref', [], 'pred', None, {'DOCKER_CONFIG': path})
+                delivery.sign_and_verify('ref', [], 'pred', {'DOCKER_CONFIG': path})
         finally:
             delivery.remove_cosign_docker_config_dir(directory)
         self.assertEqual(seen, [True])
@@ -174,201 +175,28 @@ class DeliveryTests(unittest.TestCase):
     def test_registry_rejects_empty_or_null_hosts(self):
         for registry, ci_registry in (('', ''), ('null', 'null'), ('registry.example', 'null')):
             env = {'REGISTRY': registry, 'CI_REGISTRY': ci_registry, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-            with patch.dict(os.environ, env, clear=False), \
+            with patch.dict(os.environ, env, clear=True), \
                     patch.object(delivery, 'resolve_zot_credentials') as resolve:
                 with self.assertRaises(ValueError) as ctx:
                     delivery.Registry()
-                self.assertIn('platform-state#415', str(ctx.exception))
                 resolve.assert_not_called()
 
-    def test_registry_rejects_unsafe_hostport_values(self):
-        cluster_host = 'zot.harbor.svc.cluster.local:5000'
+    def test_registry_rejects_unsafe_hostport_values_before_credentials(self):
         reject = (
             'evil.example/x.svc.cluster.local:5000',
             'user@evil.example:5000',
             'evil.example@x.svc.cluster.local:5000',
             'HTTP://x.svc.cluster.local:5000',
-            'zot.harbor.svc.cluster.local:5000\n',
-            'zot.harbor.svc.cluster.local:5000 ',
+            'registry.example:5000\n',
+            'registry.example:5000 ',
         )
         for host in reject:
-            for insecure in ('true', 'false', None):
-                env = {'REGISTRY': host, 'CI_REGISTRY': host, 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-                if insecure is not None:
-                    env['CI_REGISTRY_INSECURE'] = insecure
-                with patch.dict(os.environ, env, clear=False), \
-                        patch.object(delivery, 'resolve_zot_credentials') as resolve:
-                    with self.assertRaises(ValueError):
-                        delivery.Registry()
-                    resolve.assert_not_called()
-        uppercase_cluster = 'ZOT.HARBOR.SVC.CLUSTER.LOCAL:5000'
-        env = {'REGISTRY': uppercase_cluster, 'CI_REGISTRY': uppercase_cluster,
-               'CI_REGISTRY_INSECURE': 'true', 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-        with patch.dict(os.environ, env, clear=False), \
-                patch.object(delivery, 'resolve_zot_credentials') as resolve:
-            with self.assertRaises(ValueError):
-                delivery.Registry()
-            resolve.assert_not_called()
-        env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host,
-               'CI_REGISTRY_INSECURE': 'true', 'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-        with patch.dict(os.environ, env, clear=False):
-            registry = delivery.Registry()
-        self.assertEqual(registry.host, cluster_host)
-        self.assertTrue(registry.http)
-
-    def test_ci_registry_insecure_only_for_in_cluster_zot_port(self):
-        public_zot_host = 'zot.pi-lab.thunderrock.dev:5000'
-        for path in ROOT.rglob('*'):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(ROOT)
-            if rel.parts and rel.parts[0] == 'tests':
-                continue
-            try:
-                text = path.read_text(encoding='utf-8')
-            except (UnicodeDecodeError, OSError):
-                continue
-            self.assertNotIn(public_zot_host, text, msg=str(rel))
-
-        for host in ('registry.example.com:5000', 'foo.svc.cluster.local:443', public_zot_host):
-            env = {'REGISTRY': host, 'CI_REGISTRY': host, 'CI_REGISTRY_INSECURE': 'true',
-                   'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-            with patch.dict(os.environ, env, clear=False), \
+            env = {'REGISTRY': host, 'CI_REGISTRY': host}
+            with self.subTest(host=host), patch.dict(os.environ, env, clear=True), \
                     patch.object(delivery, 'resolve_zot_credentials') as resolve:
                 with self.assertRaises(ValueError):
                     delivery.Registry()
                 resolve.assert_not_called()
-
-        cluster_host = 'zot.harbor.svc.cluster.local:5000'
-        for insecure, expect_http in (('true', True), ('false', False), (None, False)):
-            env = {'REGISTRY': cluster_host, 'CI_REGISTRY': cluster_host,
-                   'ZOT_USER': 'u', 'ZOT_PASS': 'p'}
-            if insecure is not None:
-                env['CI_REGISTRY_INSECURE'] = insecure
-            with patch.dict(os.environ, env, clear=False):
-                registry = delivery.Registry()
-            self.assertEqual(registry.http, expect_http)
-            self.assertEqual(registry.base, ('http' if expect_http else 'https') + '://' + cluster_host)
-
-    def test_release_path_has_no_unconditional_insecure_transport(self):
-        release_files = (
-            ROOT / 'ci' / 'release.py',
-            ROOT / 'Jenkinsfile',
-            ROOT / 'ci' / 'trusted-main.sh',
-            ROOT / 'scripts' / 'ci' / 'provision-tools.sh',
-        )
-        transport_tokens = ('--plain-http', 'registry.insecure=true', '--allow-http-registry')
-        tls_bypass_tokens = ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
-                             '--allow-insecure-registry')
-        for path in release_files:
-            text = path.read_text(encoding='utf-8')
-            for token in tls_bypass_tokens:
-                self.assertNotIn(token, text, msg=str(path.relative_to(ROOT)))
-            if path.name != 'release.py':
-                for token in transport_tokens:
-                    self.assertNotIn(token, text, msg=str(path.relative_to(ROOT)))
-                continue
-            lines = text.splitlines()
-            for lineno, line in enumerate(lines, 1):
-                if line.strip().startswith('#') or 'insecure-ignore-tlog' in line:
-                    continue
-                if "'http://' +" in line or "'https://' +" in line:
-                    continue
-                prev_line = lines[lineno - 2] if lineno >= 2 else ''
-                for token in transport_tokens:
-                    if token in line and 'registry.http' not in line:
-                        if 'if registry.http' in prev_line or 'if registry.http' in line:
-                            continue
-                        self.fail(f'{path.relative_to(ROOT)}:{lineno}: ungated {token} in {line.strip()}')
-                if "('http' if self.http" in line or "'http' if self.http" in line:
-                    continue
-                if 'http://' in line and 'registry.http' not in line and 'self.http' not in line:
-                    self.fail(f'{path.relative_to(ROOT)}:{lineno}: ungated http:// in {line.strip()}')
-                if 'SYFT_REGISTRY_INSECURE_USE_HTTP' in line or 'TRIVY_INSECURE' in line:
-                    self.assertIn('registry.http', line,
-                                  msg=f'{path.relative_to(ROOT)}:{lineno}: {line.strip()}')
-        self.assertIn('def buildx_registry_push_output', (ROOT / 'ci' / 'release.py').read_text(encoding='utf-8'))
-
-    def test_buildx_registry_push_output_follows_registry_http(self):
-        registry = delivery.Registry.__new__(delivery.Registry)
-        registry.http = False
-        self.assertEqual(delivery.buildx_registry_push_output(registry), 'type=registry,push=true')
-        registry.http = True
-        self.assertEqual(delivery.buildx_registry_push_output(registry),
-                         'type=registry,push=true,registry.insecure=true')
-
-    def test_insecure_transport_gated_on_ci_registry_insecure(self):
-        release_source = (ROOT / 'ci/release.py').read_text()
-        for token in ('_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
-                      '--allow-insecure-registry'):
-            self.assertNotIn(token, release_source)
-        helm_calls = []
-        cosign_calls = []
-
-        def record_helm_run(args, **kwargs):
-            helm_calls.append(list(args))
-            return subprocess.CompletedProcess(args, 0)
-
-        def record_cosign_run(*args, capture=False, env=None):
-            if args and args[0] == 'cosign':
-                cosign_calls.append(list(args))
-            return '[]' if capture else None
-
-        cases = [
-            ('zot.harbor.svc.cluster.local:5000', 'true', True),
-            ('registry.example.com:5000', 'false', False),
-            ('registry.example.com:5000', None, False),
-        ]
-        for registry_host, insecure, expect_plain in cases:
-            env = {'REGISTRY': registry_host, 'CI_REGISTRY': registry_host,
-                   'ZOT_USER': 'ci', 'ZOT_PASS': 'secret'}
-            if insecure is not None:
-                env['CI_REGISTRY_INSECURE'] = insecure
-            with patch.dict(os.environ, env, clear=False):
-                registry = delivery.Registry()
-            self.assertEqual(registry.http, expect_plain)
-            self.assertEqual(registry.base.startswith('http://'), expect_plain)
-            self.assertEqual(registry.base, ('http' if expect_plain else 'https') + '://' + registry_host)
-
-            helm_calls.clear()
-            registry_http = delivery.Registry.__new__(delivery.Registry)
-            registry_http.host = registry.host
-            registry_http.http = registry.http
-            registry_http._user = 'ci'
-            registry_http._password = 'secret'
-            push_calls = []
-
-            def record_push(*args, **kwargs):
-                push_calls.append(list(args))
-
-            with patch.object(delivery.subprocess, 'run', side_effect=record_helm_run), \
-                    patch.object(delivery, 'run', side_effect=record_push):
-                delivery.helm_push_chart(registry_http, 'chart.tgz')
-            login = helm_calls[0]
-            if expect_plain:
-                self.assertIn('--plain-http', login)
-                self.assertIn('--plain-http', push_calls[0])
-            else:
-                self.assertNotIn('--plain-http', login)
-                self.assertNotIn('--plain-http', push_calls[0])
-
-            cosign_calls.clear()
-            predicate = delivery.provenance('abc', 'build-1')
-            with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as handle:
-                json.dump(predicate, handle)
-                predicate_path = handle.name
-            try:
-                with patch.object(delivery, 'run', side_effect=record_cosign_run), \
-                        patch.object(delivery, 'verify_statements'):
-                    delivery.sign_and_verify('ref@sha256:' + 'a' * 64, [], predicate_path, registry, {})
-            finally:
-                Path(predicate_path).unlink(missing_ok=True)
-            joined = ' '.join(' '.join(cmd) for cmd in cosign_calls)
-            if expect_plain:
-                self.assertIn('--allow-http-registry', joined)
-            else:
-                self.assertNotIn('--allow-http-registry', joined)
-                self.assertNotIn('--plain-http', joined)
 
     def test_registry_publish_uses_put_and_binds_readback(self):
         submitted = b'{"schemaVersion":2}'
@@ -384,9 +212,9 @@ class DeliveryTests(unittest.TestCase):
                 return response
             env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
                    'ZOT_USER': 'ci-push', 'ZOT_PASS': secret}
-            with patch.dict(os.environ, env, clear=False), \
-                    patch.object(delivery.urllib.request, 'urlopen', side_effect=respond):
+            with patch.dict(os.environ, env, clear=True):
                 registry = delivery.Registry()
+            with patch.object(registry.opener, 'open', side_effect=respond):
                 if readback == submitted:
                     self.assertEqual(registry.manifest('app', 'tag', submitted)[0],
                                      'sha256:' + hashlib.sha256(submitted).hexdigest())
@@ -396,12 +224,36 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual([call.get_method() for call in calls], ['PUT', 'GET'])
             self.assertEqual(calls[0].data, submitted)
             expected_auth = delivery.basic_auth_header('ci-push', secret)
-            self.assertEqual(calls[0].get_header('Authorization'), expected_auth)
+            self.assertTrue(all(call.get_header('Authorization') == expected_auth for call in calls))
+            self.assertTrue(all(call.full_url.startswith('https://registry.example/v2/') for call in calls))
             self.assertNotIn(secret, str(calls))
+
+    def test_registry_http_errors_redact_password_and_basic_auth(self):
+        secret = 'registry-error-secret'
+        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+               'ZOT_USER': 'ci-push', 'ZOT_PASS': secret}
+        with patch.dict(os.environ, env, clear=True):
+            registry = delivery.Registry()
+        auth = registry._auth
+        error = urllib.error.HTTPError(
+            'https://registry.example/v2/app/manifests/tag', 401,
+            f'Unauthorized {secret} {auth}', {}, io.BytesIO(f'Failed {secret} {auth}'.encode()))
+        with patch.object(registry.opener, 'open', side_effect=error):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                registry.manifest('app', 'tag', b'{}')
+        try:
+            self.assertEqual(caught.exception.code, 401)
+            text = str(caught.exception) + caught.exception.read().decode()
+            self.assertNotIn(secret, text)
+            self.assertNotIn(auth, text)
+            self.assertIn('Basic ***', text)
+        finally:
+            caught.exception.close()
+            error.close()
 
     def test_registry_credentials_missing_fails_fast(self):
         with patch.dict(os.environ, {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example'},
-                        clear=False):
+                        clear=True):
             os.environ.pop('ZOT_USER', None)
             os.environ.pop('ZOT_PASS', None)
             os.environ.pop('DOCKER_CONFIG', None)
@@ -416,7 +268,7 @@ class DeliveryTests(unittest.TestCase):
             config.write_text(json.dumps({'auths': {'registry.example': {'auth': auth}}}))
             env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
                    'DOCKER_CONFIG': tmp}
-            with patch.dict(os.environ, env, clear=False):
+            with patch.dict(os.environ, env, clear=True):
                 os.environ.pop('ZOT_USER', None)
                 os.environ.pop('ZOT_PASS', None)
                 registry = delivery.Registry()
@@ -429,7 +281,7 @@ class DeliveryTests(unittest.TestCase):
             config = Path(tmp) / 'config.json'
             config.write_text(json.dumps({'auths': {host_port: {'auth': auth}}}))
             env = {'REGISTRY': host_port, 'CI_REGISTRY': host_port, 'DOCKER_CONFIG': tmp}
-            with patch.dict(os.environ, env, clear=False):
+            with patch.dict(os.environ, env, clear=True):
                 os.environ.pop('ZOT_USER', None)
                 os.environ.pop('ZOT_PASS', None)
                 registry = delivery.Registry()
@@ -448,12 +300,13 @@ class DeliveryTests(unittest.TestCase):
                 return header == delivery.basic_auth_header(user, password)
 
             def do_PUT(self):
-                if not self._authorized():
-                    self.send_response(401)
-                    self.end_headers()
-                    return
                 length = int(self.headers.get('Content-Length', 0))
                 body = self.rfile.read(length)
+                if not self._authorized():
+                    self.send_response(401)
+                    self.send_header('Content-Length', '0')
+                    self.end_headers()
+                    return
                 stored[self.path] = body
                 digest = 'sha256:' + hashlib.sha256(body).hexdigest()
                 self.send_response(201)
@@ -464,6 +317,7 @@ class DeliveryTests(unittest.TestCase):
             def do_GET(self):
                 if not self._authorized():
                     self.send_response(401)
+                    self.send_header('Content-Length', '0')
                     self.end_headers()
                     return
                 body = stored.get(self.path, b'')
@@ -485,8 +339,10 @@ class DeliveryTests(unittest.TestCase):
         try:
             registry = delivery.Registry.__new__(delivery.Registry)
             registry.host = host
-            registry.http = True
+            # The loopback HTTP fixture exercises auth only; production uses HTTPS.
             registry.base = 'http://' + host
+            registry.opener = delivery.urllib.request.build_opener(
+                delivery.urllib.request.ProxyHandler({}), delivery.RefuseRedirect())
             registry._user = user
             registry._password = password
             registry._auth = delivery.basic_auth_header(user, password)
@@ -497,6 +353,7 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError) as ctx:
                 registry.manifest('app/test', 'tag2', payload)
             self.assertEqual(ctx.exception.code, 401)
+            ctx.exception.close()
         finally:
             server.shutdown()
             server.server_close()
@@ -505,7 +362,6 @@ class DeliveryTests(unittest.TestCase):
     def test_helm_push_logs_in_with_password_stdin_and_logout_on_failure(self):
         registry = delivery.Registry.__new__(delivery.Registry)
         registry.host = 'registry.example'
-        registry.http = True
         registry._user = 'ci-push'
         registry._password = 'helm-secret'
         calls = []
@@ -526,6 +382,80 @@ class DeliveryTests(unittest.TestCase):
         self.assertNotIn('helm-secret', login['args'])
         self.assertTrue(any(c['args'][:3] == ['helm', 'registry', 'logout'] for c in calls))
         self.assertNotIn('helm-secret', (ctx.exception.stderr or '') + str(ctx.exception.cmd))
+
+
+    def test_helm_login_and_push_use_authenticated_https(self):
+        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+               'ZOT_USER': 'ci-push', 'ZOT_PASS': 'helm-secret'}
+        with patch.dict(os.environ, env, clear=True):
+            registry = delivery.Registry()
+        with patch.object(delivery.subprocess, 'run') as subprocess_run, \
+                patch.object(delivery, 'run') as run:
+            delivery.helm_push_chart(registry, 'chart.tgz')
+        login = subprocess_run.call_args_list[0]
+        self.assertEqual(login.args[0], ['helm', 'registry', 'login', registry.host,
+                                        '--username', 'ci-push', '--password-stdin'])
+        self.assertEqual(login.kwargs['input'], 'helm-secret')
+        run.assert_called_once_with('helm', 'push', 'chart.tgz',
+                                    'oci://registry.example/platform/charts')
+        self.assertEqual(subprocess_run.call_args_list[-1].args[0],
+                         ['helm', 'registry', 'logout', registry.host])
+
+    def test_plain_http_and_skip_verify_switches_are_refused_whatever_their_value(self):
+        base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+                'ZOT_USER': 'ci', 'ZOT_PASS': 'test-secret'}
+        # Trivy enables insecure mode for any non-empty TRIVY_NON_SSL, "false" included.
+        for name in delivery.INSECURE_ENV:
+            for value in ('1', 'true', 'TRUE', ' yes ', 'false', 'FALSE', ' false ', 'false-ish', '0', ''):
+                with self.subTest(name=name, value=value), patch.dict(os.environ, {**base, name: value}, clear=True), \
+                        patch.object(delivery, 'resolve_zot_credentials') as resolve:
+                    with self.assertRaisesRegex(ValueError, 'HTTPS-only'):
+                        delivery.Registry()
+                    resolve.assert_not_called()
+        with patch.dict(os.environ, base, clear=True):
+            self.assertEqual(delivery.Registry().base, 'https://registry.example')
+
+    def test_registry_client_verifies_tls_ignores_proxies_and_refuses_redirects(self):
+        env = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
+               'HTTPS_PROXY': 'http://proxy.example:3128', 'ZOT_USER': 'ci', 'ZOT_PASS': 'test-secret'}
+        with patch.dict(os.environ, env):
+            registry = delivery.Registry()
+        handlers = {type(h): h for h in registry.opener.handlers}
+        context = handlers[delivery.urllib.request.HTTPSHandler]._context
+        self.assertEqual(context.verify_mode, delivery.ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+        # HTTPS_PROXY is set, yet no proxy handler was installed from the environment.
+        self.assertNotIn(delivery.urllib.request.ProxyHandler, handlers)
+        self.assertNotIn(delivery.urllib.request.HTTPRedirectHandler, handlers)
+        request = delivery.urllib.request.Request('https://registry.example/v2/app/manifests/tag')
+        for target in ('https://elsewhere.example/v2/app/manifests/tag', 'http://registry.example/v2/app/manifests/tag'):
+            with self.subTest(target=target), self.assertRaises(delivery.urllib.error.HTTPError) as caught:
+                handlers[delivery.RefuseRedirect].redirect_request(request, None, 307, 'Temporary Redirect',
+                                                                   {'Location': target}, target)
+            caught.exception.close()
+
+    def test_signing_and_verification_never_allow_plain_http(self):
+        calls = []
+        with patch.object(delivery, 'run', side_effect=lambda *args, **kwargs: calls.append(args) or ''), \
+                patch.object(delivery, 'verify_statements'), patch.object(delivery.Path, 'read_text', return_value='{}'):
+            delivery.sign_and_verify('registry.example/app@sha256:' + 'a' * 64, ['sbom.json'], 'predicate.json', {})
+        self.assertTrue(calls)
+        self.assertFalse([args for args in calls if '--allow-http-registry' in args])
+
+    def test_release_script_has_no_plain_http_transport(self):
+        source = (ROOT / 'ci/release.py').read_text()
+        # Legacy Docker auth keys may include a scheme; they never select transport.
+        lines = source.splitlines(keepends=True)
+        for node in ast.parse(source).body:
+            if isinstance(node, ast.FunctionDef) and node.name == '_docker_config_auth_entries':
+                del lines[node.lineno - 1:node.end_lineno]
+                break
+        source = ''.join(lines)
+        for flag in ('--plain-http', 'registry.insecure', '--allow-http-registry', "'http://", 'urlopen(',
+                     '_create_unverified_context', 'ssl.CERT_NONE', 'check_hostname = False',
+                     '--allow-insecure-registry'):
+            with self.subTest(flag=flag):
+                self.assertNotIn(flag, source)
 
 
 if __name__ == '__main__':

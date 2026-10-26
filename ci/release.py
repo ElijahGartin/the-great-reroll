@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import shutil
+import ssl
 import tarfile
 import tempfile
 import urllib.error
@@ -20,6 +21,14 @@ DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
 MEDIA = 'application/vnd.oci.image.index.v1+json'
 ACCEPT = ', '.join([MEDIA, 'application/vnd.docker.distribution.manifest.list.v2+json',
                     'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json'])
+# Every env switch that makes this script or a pinned tool use plain HTTP or
+# skip registry TLS verification (Trivy 0.71.0, Syft 1.18.1). Cosign, Helm
+# push and Buildx take these only as argv flags, which this script never
+# passes. Registry access is HTTPS-only (platform-state#199), so presence alone
+# is refused, whatever the value: the tools parse values differently, and
+# Trivy treats any non-empty TRIVY_NON_SSL, even "false", as insecure.
+INSECURE_ENV = ('CI_REGISTRY_INSECURE', 'TRIVY_INSECURE', 'TRIVY_NON_SSL',
+                'SYFT_REGISTRY_INSECURE_USE_HTTP', 'SYFT_REGISTRY_INSECURE_SKIP_TLS_VERIFY')
 
 
 def run(*args, capture=False, env=None):
@@ -128,48 +137,33 @@ def unpack_chart(source, destination):
                     shutil.copyfileobj(data, output)
 
 
-def ci_registry_insecure():
-    """Plain-HTTP only when CI_REGISTRY_INSECURE is exactly true (platform-state#417, due 2026-10-30)."""
-    return os.environ.get('CI_REGISTRY_INSECURE', '') == 'true'
-
-
-INSECURE_CLUSTER_REGISTRY = re.compile(
-    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.svc\.cluster\.local:5000$')
-SECURE_REGISTRY = re.compile(
-    r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?$')
-
-
-def validate_registry_value(name, raw):
-    if not raw or raw == 'null':
-        raise ValueError(
-            f'{name} must be set to the platform Zot hostname (platform-state#415); '
-            'empty and null are invalid')
-    return raw
-
-
-def validate_registry_environment():
-    """Single re.fullmatch check per env var before credential lookup or network I/O."""
-    registry = validate_registry_value('REGISTRY', os.environ.get('REGISTRY', ''))
-    ci_registry = validate_registry_value('CI_REGISTRY', os.environ.get('CI_REGISTRY', ''))
-    if registry != ci_registry:
-        raise ValueError('REGISTRY and CI_REGISTRY must match')
-    http = ci_registry_insecure()
-    pattern = INSECURE_CLUSTER_REGISTRY if http else SECURE_REGISTRY
-    for name, value in (('REGISTRY', registry), ('CI_REGISTRY', ci_registry)):
-        if not pattern.fullmatch(value):
-            if http:
-                raise ValueError(
-                    f'{name} must full-match the in-cluster Zot host:port when CI_REGISTRY_INSECURE is true')
-            raise ValueError(f'{name} must full-match the allowed registry host:port pattern')
-    return registry, http
+class RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Never follow the registry to another origin or scheme.
+        raise urllib.error.HTTPError(req.full_url, code, 'registry redirect refused', headers, fp)
 
 
 class Registry:
     def __init__(self):
-        self.host, self.http = validate_registry_environment()
-        self.base = ('http' if self.http else 'https') + '://' + self.host
+        self.host = os.environ.get('REGISTRY', '')
+        pattern = r'[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:[0-9]{1,5})?'
+        for name in ('REGISTRY', 'CI_REGISTRY'):
+            value = os.environ.get(name, '')
+            if value == 'null' or not re.fullmatch(pattern, value):
+                raise ValueError(f'{name} must be a lowercase DNS hostname with optional port')
+        if os.environ['CI_REGISTRY'] != self.host:
+            raise ValueError('REGISTRY and CI_REGISTRY must match')
+        insecure = [name for name in INSECURE_ENV if name in os.environ]
+        if insecure:
+            raise ValueError('Registry access is HTTPS-only; remove ' + ', '.join(insecure) + ' from the environment')
         self._user, self._password = resolve_zot_credentials(self.host)
         self._auth = basic_auth_header(self._user, self._password)
+        self.base = 'https://' + self.host
+        # System trust with hostname checks, no environment proxies, no redirects.
+        self.opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+            RefuseRedirect())
 
     def manifest(self, repo, ref, data=None):
         headers = {'Accept': ACCEPT, 'Authorization': self._auth}
@@ -178,7 +172,7 @@ class Registry:
         request = urllib.request.Request(f'{self.base}/v2/{repo}/manifests/{ref}', data=data,
                                          headers=headers, method='PUT' if data is not None else 'GET')
         try:
-            response_ctx = urllib.request.urlopen(request, timeout=60)
+            response_ctx = self.opener.open(request, timeout=60)
         except urllib.error.HTTPError as error:
             body = _redact_secrets(error.read().decode('utf-8', errors='replace'), self._password)
             raise urllib.error.HTTPError(
@@ -209,24 +203,13 @@ class Registry:
         raise ValueError(f'Refusing to overwrite existing tag {repo}:{ref}')
 
 
-def buildx_registry_push_output(registry):
-    """BuildKit push output; registry.insecure only when CI_REGISTRY_INSECURE validated true."""
-    output = 'type=registry,push=true'
-    if registry.http:
-        output += ',registry.insecure=true'
-    return output
-
-
 def helm_push_chart(registry, chart_package):
     host = registry.host
     login = ['helm', 'registry', 'login', host, '--username', registry._user, '--password-stdin']
-    if registry.http:
-        login.append('--plain-http')
     try:
         subprocess.run(login, input=registry._password, text=True, check=True,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        run('helm', 'push', chart_package, 'oci://' + host + '/platform/charts',
-            *(['--plain-http'] if registry.http else []))
+        run('helm', 'push', chart_package, 'oci://' + host + '/platform/charts')
     except subprocess.CalledProcessError as error:
         msg = _redact_secrets((error.stderr or '') + (error.stdout or ''), registry._password)
         raise subprocess.CalledProcessError(error.returncode, error.cmd, output=msg, stderr=msg) from None
@@ -289,15 +272,13 @@ def verify_statements(output, ref, kind, expected):
         raise ValueError('Verified attestations do not contain this build evidence')
 
 
-def sign_and_verify(ref, sbom_paths, predicate, registry, signing_env):
-    # --allow-http-registry: plain HTTP only (pi-lab). --insecure-ignore-tlog is not TLS bypass.
-    transport = ['--allow-http-registry'] if registry.http else []
-    common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false', *transport]
+def sign_and_verify(ref, sbom_paths, predicate, signing_env):
+    common = ['--yes', '--key', '/signing/cosign.key', '--use-signing-config=false', '--tlog-upload=false']
     run('cosign', 'sign', *common, ref, env=signing_env)
     run('cosign', 'attest', *common, '--type', 'https://slsa.dev/provenance/v1', '--predicate', predicate, ref, env=signing_env)
     for path in sbom_paths:
         run('cosign', 'attest', *common, '--type', 'spdxjson', '--predicate', path, ref, env=signing_env)
-    verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog', *transport]
+    verify = ['--key', 'ci/cosign.pub', '--insecure-ignore-tlog']
     run('cosign', 'verify', *verify, ref, env=signing_env)
     for kind, paths in [('https://slsa.dev/provenance/v1', [predicate]), ('https://spdx.dev/Document', sbom_paths)]:
         output = run('cosign', 'verify-attestation', *verify, '--type', kind, ref, capture=True, env=signing_env)
@@ -332,7 +313,7 @@ def main():
         builder = 'war-table-' + arch
         run('docker', 'buildx', 'create', '--name', builder, '--driver', 'remote', '--platform', 'linux/' + arch,
             '--driver-opt', tls, os.environ[f'BUILDKIT_{arch.upper()}_ADDR'])
-        output = buildx_registry_push_output(registry)
+        output = 'type=registry,push=true'
         metadata = f'dist/build-{arch}.json'
         Path('dist').mkdir(exist_ok=True)
         run('docker', 'buildx', 'build', '--builder', builder, '--platform', 'linux/' + arch,
@@ -349,8 +330,6 @@ def main():
     image_digest, _, _ = registry.manifest(repo, tag, index)
     artifacts = []
     image_sboms = []
-    scan_env = dict(os.environ, SYFT_REGISTRY_INSECURE_USE_HTTP=str(registry.http).lower(),
-                    TRIVY_INSECURE=str(registry.http).lower())
     Path('dist/security/reports').mkdir(parents=True, exist_ok=True)
     Path('dist/security/sboms').mkdir(parents=True, exist_ok=True)
     for descriptor in manifests:
@@ -360,8 +339,8 @@ def main():
         report = f'dist/security/reports/app-{arch}-trivy.json'
         run('trivy', 'image', '--image-src', 'remote', '--platform', 'linux/' + arch,
             '--scanners', 'vuln', '--severity', 'HIGH,CRITICAL', '--exit-code', '1',
-            '--format', 'json', '--output', report, ref, env=scan_env)
-        run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom, env=scan_env)
+            '--format', 'json', '--output', report, ref)
+        run('syft', 'registry:' + ref, '--platform', 'linux/' + arch, '-o', 'spdx-json=' + sbom)
         artifacts.append({'name': 'app-' + arch, 'image': ref, 'digest': descriptor['digest'],
                           'sbomPath': sbom, 'trivyReportPath': report})
         image_sboms.append(sbom)
@@ -387,8 +366,8 @@ def main():
     try:
         signing_env = dict(os.environ, COSIGN_PASSWORD=cosign_password,
                            DOCKER_CONFIG=str(cosign_docker_config))
-        sign_and_verify(image + '@' + image_digest, image_sboms, predicate, registry, signing_env)
-        sign_and_verify(chart_ref, [chart_sbom], predicate, registry, signing_env)
+        sign_and_verify(image + '@' + image_digest, image_sboms, predicate, signing_env)
+        sign_and_verify(chart_ref, [chart_sbom], predicate, signing_env)
         # This file is intentionally the last operation and the only promotion input.
         write('dist/release.json', {'application': 'war-table', 'chartVersion': version,
               'imageDigest': image_digest, 'chartDigest': chart_digest, 'sourceSHA': sha,
