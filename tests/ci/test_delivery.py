@@ -105,13 +105,13 @@ class DeliveryTests(unittest.TestCase):
                                          env)
 
     def test_cosign_docker_config_dir_auth_and_cleanup(self):
-        directory = delivery.create_cosign_docker_config_dir('registry.example:5000', 'push-user', 'push-pass')
+        directory = delivery.create_registry_docker_config_dir('registry.example:5000', 'push-user', 'push-pass')
         config_path = Path(directory) / 'config.json'
         self.assertTrue(config_path.is_file())
         self.assertEqual(os.stat(directory).st_mode & 0o777, 0o700)
         auth = json.loads(config_path.read_text())['auths']['registry.example:5000']['auth']
         self.assertEqual(base64.b64decode(auth).decode(), 'push-user:push-pass')
-        delivery.remove_cosign_docker_config_dir(directory)
+        delivery.remove_registry_docker_config_dir(directory)
         self.assertFalse(Path(directory).exists())
 
     def test_sign_and_verify_passes_docker_config_to_all_cosign_calls(self):
@@ -139,7 +139,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertTrue(all(value == docker_config for _, value in captured))
 
     def test_cosign_docker_config_removed_after_signing_finally(self):
-        directory = delivery.create_cosign_docker_config_dir('registry.example:5000', 'u', 'p')
+        directory = delivery.create_registry_docker_config_dir('registry.example:5000', 'u', 'p')
         path = str(directory)
         seen = []
 
@@ -150,7 +150,7 @@ class DeliveryTests(unittest.TestCase):
             with patch.object(delivery, 'sign_and_verify', side_effect=record_sign):
                 delivery.sign_and_verify('ref', [], 'pred', {'DOCKER_CONFIG': path})
         finally:
-            delivery.remove_cosign_docker_config_dir(directory)
+            delivery.remove_registry_docker_config_dir(directory)
         self.assertEqual(seen, [True])
         self.assertFalse(Path(path).exists())
 

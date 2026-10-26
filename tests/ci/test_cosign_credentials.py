@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('cosign_credentials', ROOT / 'ci/release.py')
@@ -15,7 +15,7 @@ delivery = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(delivery)
 
 
-class CosignCredentialTests(unittest.TestCase):
+class RegistryCredentialLifecycleTests(unittest.TestCase):
     def test_partial_creation_failure_removes_directory(self):
         for stage in ('chmod', 'open', 'write'):
             with self.subTest(stage=stage), tempfile.TemporaryDirectory() as tmp:
@@ -41,17 +41,17 @@ class CosignCredentialTests(unittest.TestCase):
                     else:
                         stack.enter_context(patch.object(delivery.json, 'dump', side_effect=failed_write))
                     with self.assertRaisesRegex(OSError, stage + ' failed'):
-                        delivery.create_cosign_docker_config_dir('registry.example', 'user', 'password')
+                        delivery.create_registry_docker_config_dir('registry.example', 'user', 'password')
                 self.assertFalse(directory.exists())
 
     def test_cleanup_failure_is_propagated(self):
         with patch.object(delivery.shutil, 'rmtree', side_effect=OSError('cleanup failed')) as cleanup:
             with self.assertRaisesRegex(OSError, 'cleanup failed'):
-                delivery.remove_cosign_docker_config_dir(Path('/unused/test-credentials'))
+                delivery.remove_registry_docker_config_dir(Path('/unused/test-credentials'))
             cleanup.assert_called_once_with(Path('/unused/test-credentials'))
 
-    def test_main_requires_signing_verification_and_cleanup_before_release_record(self):
-        for failure in (None, 'sign', 'verify', 'create', 'cleanup'):
+    def test_main_shares_private_auth_and_requires_verification_and_cleanup_before_release_record(self):
+        for failure in (None, 'buildx-create', 'build', 'trivy', 'syft', 'sign', 'attest', 'verify', 'verify-attestation', 'create', 'cleanup'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 record = root / 'dist/release.json'
@@ -65,12 +65,11 @@ class CosignCredentialTests(unittest.TestCase):
                 (root / 'ci').mkdir()
                 (root / 'ci/cosign.pub').write_text('test-key')
                 digest = 'sha256:' + 'a' * 64
-                registry = Mock(host='registry.example', _user='ci', _password='test-secret')
-                registry.manifest.return_value = (digest, b'{}', delivery.MEDIA)
                 calls = []
+                registry_calls = []
                 cleanup_seen = []
-                real_create = delivery.create_cosign_docker_config_dir
-                real_remove = delivery.remove_cosign_docker_config_dir
+                real_create = delivery.create_registry_docker_config_dir
+                real_remove = delivery.remove_registry_docker_config_dir
 
                 def local_path(path):
                     path = Path(path)
@@ -97,6 +96,28 @@ class CosignCredentialTests(unittest.TestCase):
                     real_remove(directory)
 
                 def run(*args, **kwargs):
+                    remote_client = (args[:2] == ('docker', 'buildx') or args[0] in ('trivy', 'cosign')
+                                     or (args[0] == 'syft' and args[1].startswith('registry:')))
+                    if remote_client:
+                        registry_calls.append(args[:3])
+                        self.assertFalse(record.exists())
+                        client_env = kwargs['env']
+                        self.assertEqual(client_env['DOCKER_CONFIG'], str(credentials))
+                        config = json.loads((credentials / 'config.json').read_text())
+                        self.assertEqual(config['auths'], {'registry.example:5000': {
+                            'auth': base64.b64encode(b'ci:test-secret').decode()}})
+                        # The install-tools.py target remains discoverable after changing DOCKER_CONFIG.
+                        self.assertEqual(config['cliPluginsExtraDirs'], ['/opt/war-table-ci/bin'])
+                        self.assertEqual(credentials.stat().st_mode & 0o777, 0o700)
+                        self.assertEqual((credentials / 'config.json').stat().st_mode & 0o777, 0o600)
+                        if args[0] != 'cosign':
+                            self.assertNotIn('COSIGN_PASSWORD', client_env)
+                        else:
+                            self.assertEqual(client_env['COSIGN_PASSWORD'], 'test-key')
+                        stage = ('buildx-create' if args[:3] == ('docker', 'buildx', 'create') else
+                                 'build' if args[:3] == ('docker', 'buildx', 'build') else args[0])
+                        if failure == stage:
+                            raise subprocess.CalledProcessError(1, args)
                     if args[:2] == ('git', 'rev-parse'):
                         return 'b' * 40
                     if args[:3] == ('docker', 'buildx', 'build'):
@@ -121,19 +142,22 @@ class CosignCredentialTests(unittest.TestCase):
                                      'predicateType': kind, 'predicate': predicate}
                         return json.dumps({'payload': base64.b64encode(json.dumps(statement).encode()).decode()})
 
-                env = {'BUILD_NUMBER': '12', 'BUILDKIT_AMD64_NAME': 'builder',
+                env = {'REGISTRY': 'registry.example:5000', 'CI_REGISTRY': 'registry.example:5000',
+                       'ZOT_USER': 'ci', 'ZOT_PASS': 'test-secret', 'BUILD_NUMBER': '12', 'BUILDKIT_AMD64_NAME': 'builder',
                        'BUILDKIT_ARM64_NAME': 'builder', 'BUILDKIT_AMD64_ADDR': 'unused',
                        'BUILDKIT_ARM64_ADDR': 'unused'}
                 with ExitStack() as stack:
                     stack.enter_context(patch.dict(os.environ, env, clear=True))
                     stack.enter_context(patch.object(delivery, 'Path', side_effect=local_path))
-                    stack.enter_context(patch.object(delivery, 'Registry', return_value=registry))
+                    stack.enter_context(patch.object(delivery.Registry, 'require_absent'))
+                    stack.enter_context(patch.object(delivery.Registry, 'manifest',
+                                                     return_value=(digest, b'{}', delivery.MEDIA)))
                     stack.enter_context(patch.object(delivery, 'run', side_effect=run))
                     for name in ('unpack_chart', 'helm_push_chart', 'verify_chart_content'):
                         stack.enter_context(patch.object(delivery, name))
                     stack.enter_context(patch.object(delivery, 'architecture_manifest', return_value=digest))
-                    stack.enter_context(patch.object(delivery, 'create_cosign_docker_config_dir', side_effect=create))
-                    stack.enter_context(patch.object(delivery, 'remove_cosign_docker_config_dir', side_effect=cleanup))
+                    stack.enter_context(patch.object(delivery, 'create_registry_docker_config_dir', side_effect=create))
+                    stack.enter_context(patch.object(delivery, 'remove_registry_docker_config_dir', side_effect=cleanup))
                     if failure:
                         with self.assertRaises((OSError, subprocess.CalledProcessError)):
                             delivery.main()
@@ -141,8 +165,13 @@ class CosignCredentialTests(unittest.TestCase):
                     else:
                         delivery.main()
                         self.assertEqual(json.loads(record.read_text())['imageDigest'], digest)
+                        self.assertEqual(sum(call[:2] == ('docker', 'buildx') for call in registry_calls), 4)
+                        self.assertEqual(sum(call[0] == 'trivy' for call in registry_calls), 2)
+                        self.assertEqual(sum(call[0] == 'syft' for call in registry_calls), 2)
                         self.assertEqual(calls.count('sign'), 2)
                         self.assertEqual(calls.count('verify-attestation'), 4)
+                    self.assertNotIn('DOCKER_CONFIG', os.environ)
+                    self.assertNotIn('COSIGN_PASSWORD', os.environ)
                 self.assertEqual(cleanup_seen, [credentials])
                 self.assertEqual(credentials.exists(), failure == 'cleanup')
 

@@ -37,7 +37,11 @@ The platform agent supplies:
   The earlier shared-identity proposal (#415) was closed without merging.
   Confirm credential delivery before publishing. `ci/release.py`
   builds a private temp `DOCKER_CONFIG` from the same resolved credentials for
-  cosign sign/attest/verify only; BuildKit pushes use the remote builder's mount.
+  Buildx create/build, remote Trivy/Syft scans, and cosign sign/attest/verify.
+  Buildx forwards client credentials to the remote builder over its session; a
+  daemon-only mount is insufficient. The private config retains discovery of the
+  checksum-pinned Buildx plugin and is removed after verification or any failure.
+  Credential cleanup must succeed before `dist/release.json` is written.
   Docker config lookup matches the exact registry hostname and optional port;
   credentials are never reused across ports. Helm login and push use a private
   temporary registry config that is removed on success or failure. Cleanup
