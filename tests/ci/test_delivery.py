@@ -454,13 +454,19 @@ class DeliveryTests(unittest.TestCase):
 
         try:
             with patch.object(delivery.subprocess, 'run', side_effect=fake_run), \
-                    patch.object(delivery.shutil, 'rmtree', side_effect=OSError('cleanup failed')):
+                    patch.object(delivery.tempfile.TemporaryDirectory, 'cleanup', autospec=True,
+                                 side_effect=OSError('cleanup failed')) as cleanup:
+                # Inject failure at the context manager's cleanup boundary, independent
+                # of platform-specific shutil implementations and tempfile imports.
                 with self.assertRaisesRegex(OSError, 'cleanup failed'):
                     delivery.helm_push_chart(registry, 'chart.tgz')
+                cleanup.assert_called_once()
             self.assertEqual(len(configs), 2)
         finally:
-            if configs:
-                delivery.shutil.rmtree(configs[0].parent)
+            if cleanup.call_args is not None:
+                # Run real cleanup after restoring the method, including detaching
+                # the finalizer so test teardown cannot emit a later warning.
+                delivery.tempfile.TemporaryDirectory.cleanup(cleanup.call_args.args[0])
 
     def test_plain_http_and_skip_verify_switches_are_refused_whatever_their_value(self):
         base = {'REGISTRY': 'registry.example', 'CI_REGISTRY': 'registry.example',
